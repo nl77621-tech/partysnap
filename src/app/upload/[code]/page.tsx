@@ -45,9 +45,48 @@ interface ExistingUpload {
   caption: string | null;
 }
 
+// Lightbox component — click a gallery photo to see it full-size
+function Lightbox({
+  src,
+  caption,
+  onClose,
+}: {
+  src: string;
+  caption?: string | null;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <button
+        className="absolute top-4 right-4 text-white/80 hover:text-white text-3xl leading-none"
+        onClick={onClose}
+      >
+        ✕
+      </button>
+      <div
+        className="max-w-full max-h-full flex flex-col items-center gap-3"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <img
+          src={src}
+          alt=""
+          className="max-w-[90vw] max-h-[80vh] rounded-xl object-contain"
+        />
+        {caption && (
+          <p className="text-white/80 text-sm text-center">{caption}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function GuestUploadPage() {
   const params = useParams();
   const [party, setParty] = useState<Party | null>(null);
+  const [lightbox, setLightbox] = useState<{ src: string; caption?: string | null } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploads, setUploads] = useState<UploadItem[]>([]);
@@ -174,19 +213,46 @@ export default function GuestUploadPage() {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: `${themeColor}10` }}>
-      {/* Header */}
+      {/* Lightbox */}
+      {lightbox && (
+        <Lightbox
+          src={lightbox.src}
+          caption={lightbox.caption}
+          onClose={() => setLightbox(null)}
+        />
+      )}
+
+      {/* Header — with optional cover photo */}
       <div
-        className="pt-8 pb-6 px-4 text-center text-white"
+        className="relative text-center text-white overflow-hidden"
         style={{ background: `linear-gradient(135deg, ${themeColor}, ${themeColor}dd)` }}
       >
-        <h1 className="text-2xl font-bold mb-1">{party.name}</h1>
-        <p className="text-sm opacity-80">
-          {new Date(party.date).toLocaleDateString("en-US", {
-            weekday: "long",
-            month: "long",
-            day: "numeric",
-          })}
-        </p>
+        {party.coverPhoto && (
+          <img
+            src={party.coverPhoto}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover opacity-30"
+          />
+        )}
+        <div className={`relative z-10 ${party.coverPhoto ? "pt-12 pb-10" : "pt-8 pb-6"} px-4`}>
+          {party.coverPhoto && (
+            <div className="mb-4 flex justify-center">
+              <img
+                src={party.coverPhoto}
+                alt="Cover"
+                className="w-24 h-24 rounded-full object-cover border-4 border-white/40 shadow-lg"
+              />
+            </div>
+          )}
+          <h1 className="text-2xl font-bold mb-1">{party.name}</h1>
+          <p className="text-sm opacity-80">
+            {new Date(party.date).toLocaleDateString("en-US", {
+              weekday: "long",
+              month: "long",
+              day: "numeric",
+            })}
+          </p>
+        </div>
       </div>
 
       <div className="max-w-lg mx-auto px-4 py-6 space-y-4">
@@ -315,25 +381,47 @@ export default function GuestUploadPage() {
               📸 {existingUploads.length} photo{existingUploads.length !== 1 ? "s" : ""} shared so far
             </h2>
             <div className="grid grid-cols-3 gap-1.5">
-              {existingUploads.map((u) => (
-                <div key={u.id} className="aspect-square rounded-xl overflow-hidden bg-gray-100">
-                  {getDisplayUrl(u.driveThumbnail, u.driveFileId) ? (
-                    <img
-                      src={getDisplayUrl(u.driveThumbnail, u.driveFileId)!}
-                      alt={u.caption || u.fileName}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      {u.mediaType === "video" ? (
-                        <span className="text-2xl">🎥</span>
-                      ) : (
-                        <span className="text-2xl">📷</span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
+              {existingUploads.map((u) => {
+                const displayUrl = getDisplayUrl(u.driveThumbnail, u.driveFileId);
+                return (
+                  <div
+                    key={u.id}
+                    className="aspect-square rounded-xl overflow-hidden bg-gray-100 relative"
+                  >
+                    {displayUrl ? (
+                      <button
+                        className="w-full h-full block"
+                        onClick={() =>
+                          setLightbox({
+                            src: getDisplayUrl(u.driveThumbnail, u.driveFileId, "w1600")!,
+                            caption: u.caption,
+                          })
+                        }
+                      >
+                        <img
+                          src={displayUrl}
+                          alt={u.caption || u.fileName}
+                          className="w-full h-full object-cover active:scale-95 transition-transform"
+                        />
+                        {/* Tap hint */}
+                        <span className="absolute bottom-1 right-1 bg-black/40 rounded-full p-0.5">
+                          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                          </svg>
+                        </span>
+                      </button>
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        {u.mediaType === "video" ? (
+                          <span className="text-2xl">🎥</span>
+                        ) : (
+                          <span className="text-2xl">📷</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

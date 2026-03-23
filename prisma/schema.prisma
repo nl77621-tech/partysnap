@@ -69,6 +69,21 @@ model Party {
 
   host    User     @relation(fields: [hostId], references: [id], onDelete: Cascade)
   uploads Upload[]
+  tables  Table[]
+}
+
+model Table {
+  id        String   @id @default(cuid())
+  partyId   String
+  number    Int
+  name      String?
+  guests    String[] // up to 10 guest names
+  createdAt DateTime @default(now())
+
+  party Party @relation(fields: [partyId], references: [id], onDelete: Cascade)
+
+  @@unique([partyId, number])
+  @@index([partyId])
 }
 
 model Upload {

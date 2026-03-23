@@ -121,7 +121,7 @@ export default function Dashboard() {
                     </div>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     <Link
                       href={`/party/${party.id}/qr`}
                       className="flex-1 text-center px-3 py-2 text-sm bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 transition-colors"
@@ -133,6 +133,12 @@ export default function Dashboard() {
                       className="flex-1 text-center px-3 py-2 text-sm bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition-colors"
                     >
                       Slideshow
+                    </Link>
+                    <Link
+                      href={`/party/${party.id}/settings`}
+                      className="flex-1 text-center px-3 py-2 text-sm bg-emerald-50 text-emerald-700 rounded-lg hover:bg-emerald-100 transition-colors"
+                    >
+                      Settings
                     </Link>
                     <Link
                       href={`/party/${party.id}/edit`}
