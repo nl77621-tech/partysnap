@@ -21,6 +21,33 @@ interface Party {
 
 type ViewMode = "slideshow" | "grid";
 
+// Normalize Drive thumbnail URLs to ensure they display correctly in <img> tags.
+// Handles both old drive.google.com/thumbnail and lh3 CDN URLs.
+function getDisplayUrl(driveThumbnail: string | null, driveFileId: string | null, size = "w1600"): string | null {
+  if (!driveThumbnail && !driveFileId) return null;
+
+  // Old-style drive.google.com/thumbnail?id=X&sz=... — extract ID and rebuild as lh3 CDN URL
+  if (driveThumbnail?.includes("drive.google.com/thumbnail")) {
+    const match = driveThumbnail.match(/[?&]id=([^&]+)/);
+    const id = match?.[1] || driveFileId;
+    if (id) return `https://lh3.googleusercontent.com/d/${id}=${size}`;
+  }
+
+  // lh3 CDN URL — ensure correct size suffix
+  if (driveThumbnail?.includes("lh3.googleusercontent.com/d/")) {
+    return driveThumbnail.replace(/=w\d+$/, `=${size}`).replace(/=s\d+$/, `=${size}`);
+  }
+
+  // Generic =s220 replacement (old Google thumbnail style)
+  if (driveThumbnail) {
+    return driveThumbnail.replace(/=s\d+$/, `=${size}`).replace(/=s220/, `=${size}`);
+  }
+
+  // Last resort: build from fileId
+  if (driveFileId) return `https://lh3.googleusercontent.com/d/${driveFileId}=${size}`;
+  return null;
+}
+
 export default function SlideshowPage() {
   const params = useParams();
   const [party, setParty] = useState<Party | null>(null);
@@ -157,9 +184,9 @@ export default function SlideshowPage() {
             key={currentPhoto.id}
             className="absolute inset-0 animate-fadeIn"
           >
-            {currentPhoto.driveThumbnail ? (
+            {getDisplayUrl(currentPhoto.driveThumbnail, currentPhoto.driveFileId) ? (
               <img
-                src={currentPhoto.driveThumbnail.replace("=s220", "=s1600")}
+                src={getDisplayUrl(currentPhoto.driveThumbnail, currentPhoto.driveFileId)!}
                 alt=""
                 className="w-full h-full object-contain ken-burns"
               />
@@ -199,9 +226,9 @@ export default function SlideshowPage() {
               key={upload.id}
               className="relative rounded-lg overflow-hidden bg-gray-900 aspect-square animate-slideUp"
             >
-              {upload.driveThumbnail ? (
+              {getDisplayUrl(upload.driveThumbnail, upload.driveFileId, "w400") ? (
                 <img
-                  src={upload.driveThumbnail.replace("=s220", "=s400")}
+                  src={getDisplayUrl(upload.driveThumbnail, upload.driveFileId, "w400")!}
                   alt=""
                   className="w-full h-full object-cover"
                 />

@@ -3,6 +3,22 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
 
+// Normalize Drive thumbnail URLs for reliable display in <img> tags
+function getDisplayUrl(thumbnail: string | null, fileId: string | null, size = "w400"): string | null {
+  if (!thumbnail && !fileId) return null;
+  if (thumbnail?.includes("drive.google.com/thumbnail")) {
+    const match = thumbnail.match(/[?&]id=([^&]+)/);
+    const id = match?.[1] || fileId;
+    if (id) return `https://lh3.googleusercontent.com/d/${id}=${size}`;
+  }
+  if (thumbnail?.includes("lh3.googleusercontent.com/d/")) {
+    return thumbnail.replace(/=w\d+$/, `=${size}`).replace(/=s\d+$/, `=${size}`);
+  }
+  if (thumbnail) return thumbnail.replace(/=s\d+$/, `=${size}`);
+  if (fileId) return `https://lh3.googleusercontent.com/d/${fileId}=${size}`;
+  return null;
+}
+
 interface Party {
   id: string;
   name: string;
@@ -301,9 +317,9 @@ export default function GuestUploadPage() {
             <div className="grid grid-cols-3 gap-1.5">
               {existingUploads.map((u) => (
                 <div key={u.id} className="aspect-square rounded-xl overflow-hidden bg-gray-100">
-                  {u.driveThumbnail ? (
+                  {getDisplayUrl(u.driveThumbnail, u.driveFileId) ? (
                     <img
-                      src={u.driveThumbnail}
+                      src={getDisplayUrl(u.driveThumbnail, u.driveFileId)!}
                       alt={u.caption || u.fileName}
                       className="w-full h-full object-cover"
                     />

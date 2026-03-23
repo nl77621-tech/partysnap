@@ -46,8 +46,9 @@ export async function uploadFileToDrive(options: UploadOptions) {
         fileId,
         requestBody: { role: "reader", type: "anyone" },
       });
-      // Use stable Google Drive thumbnail URL that doesn't expire
-      response.data.thumbnailLink = `https://drive.google.com/thumbnail?id=${fileId}&sz=w1600`;
+      // Use lh3.googleusercontent.com CDN URL — works reliably in <img> tags
+      // for publicly shared Drive files without CORS or redirect issues
+      response.data.thumbnailLink = `https://lh3.googleusercontent.com/d/${fileId}=w1600`;
     } catch {
       // Fall back to original thumbnailLink if permissions fail
     }
