@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { generateQRCodeBuffer, getUploadUrl } from "@/lib/qr";
 
@@ -13,7 +14,7 @@ export async function GET(req: NextRequest) {
   const url = getUploadUrl(code);
   const buffer = await generateQRCodeBuffer(url, { width });
 
-  return new NextResponse(buffer, {
+  return new NextResponse(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "image/png",
       "Content-Disposition": `inline; filename="qr-${code}.png"`,
