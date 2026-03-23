@@ -3,8 +3,21 @@ import GoogleProvider from "next-auth/providers/google";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "@/lib/db";
 
+// Custom adapter that strips unknown fields Google sends (e.g. refresh_token_expires_in)
+function createAdapter() {
+  const adapter = PrismaAdapter(prisma);
+  return {
+    ...adapter,
+    linkAccount: async (account: Record<string, unknown>) => {
+      const { refresh_token_expires_in, ...accountData } = account;
+      void refresh_token_expires_in;
+      return adapter.linkAccount!(accountData as Parameters<typeof adapter.linkAccount>[0]);
+    },
+  };
+}
+
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
+  adapter: createAdapter(),
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
