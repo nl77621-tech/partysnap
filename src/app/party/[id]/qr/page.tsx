@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { jsPDF } from "jspdf";
+import QRCode from "qrcode";
 
 interface Party {
   id: string;
@@ -17,6 +18,7 @@ export default function QRCodePage() {
   const [party, setParty] = useState<Party | null>(null);
   const [loading, setLoading] = useState(true);
   const [tableCount, setTableCount] = useState(1);
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -26,25 +28,30 @@ export default function QRCodePage() {
       .finally(() => setLoading(false));
   }, [params.id]);
 
-  const qrUrl = party ? `/api/qr?code=${party.code}&width=600` : "";
-  const uploadUrl = party
-    ? `${window.location.origin}/upload/${party.code}`
-    : "";
-
-  const downloadPNG = async () => {
+  // Generate QR code client-side using window.location.origin — always correct URL
+  useEffect(() => {
     if (!party) return;
-    const res = await fetch(qrUrl);
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
+    const uploadUrl = `${window.location.origin}/upload/${party.code}`;
+    QRCode.toDataURL(uploadUrl, {
+      width: 600,
+      margin: 2,
+      color: { dark: "#000000", light: "#ffffff" },
+      errorCorrectionLevel: "M",
+    }).then(setQrDataUrl);
+  }, [party]);
+
+  const uploadUrl = party ? `${typeof window !== "undefined" ? window.location.origin : ""}/upload/${party.code}` : "";
+
+  const downloadPNG = () => {
+    if (!qrDataUrl || !party) return;
     const a = document.createElement("a");
-    a.href = url;
+    a.href = qrDataUrl;
     a.download = `partysnap-${party.code}.png`;
     a.click();
-    URL.revokeObjectURL(url);
   };
 
   const downloadTableTentPDF = async () => {
-    if (!party) return;
+    if (!party || !qrDataUrl) return;
 
     const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
     const pageW = pdf.internal.pageSize.getWidth();
@@ -58,7 +65,7 @@ export default function QRCodePage() {
       pdf.setLineDashPattern([3, 3], 0);
       pdf.line(0, pageH / 2, pageW, pageH / 2);
 
-      // Top half (will be back when folded)
+      // Top half
       pdf.setFontSize(28);
       pdf.setTextColor(party.themeColor);
       pdf.text(party.name, pageW / 2, 30, { align: "center" });
@@ -72,24 +79,11 @@ export default function QRCodePage() {
         { align: "center" }
       );
 
-      // QR code on top half
-      const qrRes = await fetch(`/api/qr?code=${party.code}&width=400`);
-      const qrBlob = await qrRes.blob();
-      const qrDataUrl = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.readAsDataURL(qrBlob);
-      });
-
       const qrSize = 55;
       pdf.addImage(qrDataUrl, "PNG", (pageW - qrSize) / 2, 48, qrSize, qrSize);
 
-      // Bottom half (front when folded) — upside down
-      pdf.saveGraphicsState();
-
-      // Draw text upside down on bottom half
+      // Bottom half
       const bottomCenterY = pageH * 0.75;
-
       pdf.setFontSize(20);
       pdf.setTextColor(party.themeColor);
       pdf.text("Scan to share your", pageW / 2, bottomCenterY - 15, { align: "center" });
@@ -106,8 +100,6 @@ export default function QRCodePage() {
         pdf.setTextColor(party.themeColor);
         pdf.text(`Table ${t}`, pageW / 2, bottomCenterY + 22, { align: "center" });
       }
-
-      pdf.restoreGraphicsState();
     }
 
     pdf.save(`partysnap-table-tent-${party.code}.pdf`);
@@ -138,7 +130,11 @@ export default function QRCodePage() {
 
       <main className="max-w-2xl mx-auto px-4 py-8 text-center">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 mb-8">
-          <img src={qrUrl} alt="QR Code" className="mx-auto w-64 h-64 mb-4" />
+          {qrDataUrl ? (
+            <img src={qrDataUrl} alt="QR Code" className="mx-auto w-64 h-64 mb-4" />
+          ) : (
+            <div className="w-64 h-64 mx-auto mb-4 bg-gray-100 rounded-lg animate-pulse" />
+          )}
           <p className="text-lg font-semibold" style={{ color: party.themeColor }}>
             {party.name}
           </p>
@@ -149,7 +145,8 @@ export default function QRCodePage() {
         <div className="space-y-4">
           <button
             onClick={downloadPNG}
-            className="w-full py-3 px-6 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors"
+            disabled={!qrDataUrl}
+            className="w-full py-3 px-6 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50"
           >
             Download QR as PNG
           </button>
@@ -169,7 +166,8 @@ export default function QRCodePage() {
             </div>
             <button
               onClick={downloadTableTentPDF}
-              className="w-full py-3 px-6 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors"
+              disabled={!qrDataUrl}
+              className="w-full py-3 px-6 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors disabled:opacity-50"
             >
               Download Table Tent PDF ({tableCount} {tableCount === 1 ? "card" : "cards"})
             </button>

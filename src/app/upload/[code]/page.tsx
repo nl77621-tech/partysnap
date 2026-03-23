@@ -20,12 +20,22 @@ interface UploadItem {
   preview: string;
 }
 
+interface ExistingUpload {
+  id: string;
+  fileName: string;
+  driveFileId: string | null;
+  driveThumbnail: string | null;
+  mediaType: string;
+  caption: string | null;
+}
+
 export default function GuestUploadPage() {
   const params = useParams();
   const [party, setParty] = useState<Party | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploads, setUploads] = useState<UploadItem[]>([]);
+  const [existingUploads, setExistingUploads] = useState<ExistingUpload[]>([]);
   const [globalCaption, setGlobalCaption] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -39,7 +49,13 @@ export default function GuestUploadPage() {
         }
         return r.json();
       })
-      .then(setParty)
+      .then((p) => {
+        setParty(p);
+        // Fetch existing uploads for gallery
+        return fetch(`/api/parties/${p.id}/uploads?limit=200`);
+      })
+      .then((r) => r.json())
+      .then(setExistingUploads)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [params.code]);
@@ -273,6 +289,36 @@ export default function GuestUploadPage() {
                 )}
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Party Gallery */}
+        {existingUploads.length > 0 && (
+          <div className="pt-4">
+            <h2 className="text-center text-sm font-semibold text-gray-500 mb-3">
+              📸 {existingUploads.length} photo{existingUploads.length !== 1 ? "s" : ""} shared so far
+            </h2>
+            <div className="grid grid-cols-3 gap-1.5">
+              {existingUploads.map((u) => (
+                <div key={u.id} className="aspect-square rounded-xl overflow-hidden bg-gray-100">
+                  {u.driveThumbnail ? (
+                    <img
+                      src={u.driveThumbnail}
+                      alt={u.caption || u.fileName}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      {u.mediaType === "video" ? (
+                        <span className="text-2xl">🎥</span>
+                      ) : (
+                        <span className="text-2xl">📷</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

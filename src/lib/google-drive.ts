@@ -37,6 +37,22 @@ export async function uploadFileToDrive(options: UploadOptions) {
     fields: "id,name,mimeType,thumbnailLink,webViewLink",
   });
 
+  const fileId = response.data.id;
+
+  // Make file publicly readable so thumbnail URLs never expire
+  if (fileId) {
+    try {
+      await drive.permissions.create({
+        fileId,
+        requestBody: { role: "reader", type: "anyone" },
+      });
+      // Use stable Google Drive thumbnail URL that doesn't expire
+      response.data.thumbnailLink = `https://drive.google.com/thumbnail?id=${fileId}&sz=w1600`;
+    } catch {
+      // Fall back to original thumbnailLink if permissions fail
+    }
+  }
+
   return response.data;
 }
 
