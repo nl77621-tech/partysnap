@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
     headers: {
       "Content-Type": "image/png",
       "Content-Disposition": `inline; filename="qr-${code}.png"`,
-      "Cache-Control": "public, max-age=31536000",
+      "Cache-Control": "no-store",
     },
   });
 }
