@@ -90,9 +90,28 @@ export async function POST(req: NextRequest) {
         driveFileId = driveFile.id || null;
         driveThumbnail = driveFile.thumbnailLink || null;
       } catch (driveError) {
-        console.error("Google Drive upload failed:", driveError);
-        // Continue — save upload record even if Drive upload fails
+        // Log full error details so they appear in Railway logs
+        const errMsg = driveError instanceof Error ? driveError.message : String(driveError);
+        const errStack = driveError instanceof Error ? driveError.stack : undefined;
+        console.error("[DRIVE UPLOAD FAILED]", {
+          partyId: party.id,
+          folderId: party.driveFolderId,
+          fileName: file.name,
+          hasAccessToken: !!account.access_token,
+          hasRefreshToken: !!account.refresh_token,
+          tokenExpiresAt: account.expires_at
+            ? new Date(account.expires_at * 1000).toISOString()
+            : "unknown",
+          error: errMsg,
+          stack: errStack,
+        });
       }
+    } else {
+      console.log("[DRIVE UPLOAD SKIPPED]", {
+        hasFolderId: !!party.driveFolderId,
+        hasAccount: !!party.host.accounts[0],
+        partyId: party.id,
+      });
     }
 
     // Save upload record
