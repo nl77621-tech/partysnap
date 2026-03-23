@@ -86,6 +86,8 @@ export async function POST(req: NextRequest) {
           description: caption || undefined,
           accessToken: account.access_token!,
           refreshToken: account.refresh_token || undefined,
+          expiresAt: account.expires_at,       // pass so googleapis knows to refresh
+          userId: party.host.id,               // pass so refreshed token gets saved to DB
         });
         driveFileId = driveFile.id || null;
         driveThumbnail = driveFile.thumbnailLink || null;

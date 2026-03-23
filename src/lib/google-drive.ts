@@ -10,12 +10,14 @@ interface UploadOptions {
   description?: string;
   accessToken: string;
   refreshToken?: string;
+  expiresAt?: number | null;
+  userId?: string;
 }
 
 export async function uploadFileToDrive(options: UploadOptions) {
-  const { fileName, mimeType, fileBuffer, folderId, description, accessToken, refreshToken } = options;
+  const { fileName, mimeType, fileBuffer, folderId, description, accessToken, refreshToken, expiresAt, userId } = options;
 
-  const auth = getAuthenticatedClient(accessToken, refreshToken);
+  const auth = getAuthenticatedClient(accessToken, refreshToken, expiresAt, userId);
   const drive = google.drive({ version: "v3", auth });
 
   const fileMetadata: Record<string, unknown> = {
@@ -61,9 +63,11 @@ export async function createDriveFolder(
   name: string,
   parentFolderId: string,
   accessToken: string,
-  refreshToken?: string
+  refreshToken?: string,
+  expiresAt?: number | null,
+  userId?: string
 ) {
-  const auth = getAuthenticatedClient(accessToken, refreshToken);
+  const auth = getAuthenticatedClient(accessToken, refreshToken, expiresAt, userId);
   const drive = google.drive({ version: "v3", auth });
 
   const response = await drive.files.create({

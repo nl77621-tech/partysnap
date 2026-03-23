@@ -49,7 +49,9 @@ export async function POST(req: NextRequest) {
         `${name} (PartySnap)`,
         "root",
         account.access_token,
-        account.refresh_token || undefined
+        account.refresh_token || undefined,
+        account.expires_at,
+        session.user.id
       );
       driveFolderId = folder.id || null;
     }
