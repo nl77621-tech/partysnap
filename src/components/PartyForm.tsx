@@ -27,7 +27,6 @@ export default function PartyForm({ initialData, mode }: PartyFormProps) {
     name: initialData?.name || "",
     date: initialData?.date ? new Date(initialData.date).toISOString().slice(0, 16) : "",
     themeColor: initialData?.themeColor || "#6366f1",
-    driveFolderId: initialData?.driveFolderId || "",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -110,22 +109,6 @@ export default function PartyForm({ initialData, mode }: PartyFormProps) {
             title="Custom color"
           />
         </div>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Google Drive Folder ID
-        </label>
-        <input
-          type="text"
-          placeholder="Paste your Google Drive folder ID"
-          value={form.driveFolderId}
-          onChange={(e) => setForm({ ...form, driveFolderId: e.target.value })}
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-        />
-        <p className="text-xs text-gray-500 mt-1">
-          Find this in the folder URL: drive.google.com/drive/folders/<strong>FOLDER_ID</strong>
-        </p>
       </div>
 
       <button
