@@ -382,13 +382,26 @@ export default function GuestUploadPage() {
             </h2>
             <div className="grid grid-cols-3 gap-1.5">
               {existingUploads.map((u) => {
-                const displayUrl = getDisplayUrl(u.driveThumbnail, u.driveFileId);
+                // Only use image CDN URL for images — video file IDs don't render as images
+                const displayUrl = u.mediaType === "image"
+                  ? getDisplayUrl(u.driveThumbnail, u.driveFileId)
+                  : null;
                 return (
                   <div
                     key={u.id}
                     className="aspect-square rounded-xl overflow-hidden bg-gray-100 relative"
                   >
-                    {displayUrl ? (
+                    {u.mediaType === "video" ? (
+                      // Video placeholder — styled tile with play icon
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-gray-800 gap-1">
+                        <svg className="w-8 h-8 text-white/70" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                        <span className="text-white/50 text-xs truncate px-2 max-w-full">
+                          {u.fileName}
+                        </span>
+                      </div>
+                    ) : displayUrl ? (
                       <button
                         className="w-full h-full block"
                         onClick={() =>
@@ -403,7 +416,6 @@ export default function GuestUploadPage() {
                           alt={u.caption || u.fileName}
                           className="w-full h-full object-cover active:scale-95 transition-transform"
                         />
-                        {/* Tap hint */}
                         <span className="absolute bottom-1 right-1 bg-black/40 rounded-full p-0.5">
                           <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
@@ -412,11 +424,7 @@ export default function GuestUploadPage() {
                       </button>
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
-                        {u.mediaType === "video" ? (
-                          <span className="text-2xl">🎥</span>
-                        ) : (
-                          <span className="text-2xl">📷</span>
-                        )}
+                        <span className="text-2xl">📷</span>
                       </div>
                     )}
                   </div>
