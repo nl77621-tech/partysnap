@@ -4,10 +4,13 @@ import { useSession } from "next-auth/react";
 import { useRouter, useParams } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
+import QRCode from "qrcode";
+import { jsPDF } from "jspdf";
 
 interface Party {
   id: string;
   name: string;
+  code: string;
   themeColor: string;
   coverPhoto: string | null;
   driveFolderId: string | null;
@@ -29,6 +32,10 @@ export default function PartySettings() {
   const [party, setParty] = useState<Party | null>(null);
   const [tables, setTables] = useState<Table[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // QR code state
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
+  const [tableCount, setTableCount] = useState(1);
 
   // Cover photo state
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
@@ -59,27 +66,83 @@ export default function PartySettings() {
       .finally(() => setLoading(false));
   }, [partyId]);
 
+  // Generate QR code once party is loaded
+  useEffect(() => {
+    if (!party) return;
+    const uploadUrl = `${window.location.origin}/upload/${party.code}`;
+    QRCode.toDataURL(uploadUrl, {
+      width: 600,
+      margin: 2,
+      color: { dark: "#000000", light: "#ffffff" },
+      errorCorrectionLevel: "M",
+    }).then(setQrDataUrl);
+  }, [party]);
+
+  const uploadUrl = party
+    ? `${typeof window !== "undefined" ? window.location.origin : ""}/upload/${party.code}`
+    : "";
+
+  const downloadQRPng = () => {
+    if (!qrDataUrl || !party) return;
+    const a = document.createElement("a");
+    a.href = qrDataUrl;
+    a.download = `partysnap-${party.code}.png`;
+    a.click();
+  };
+
+  const downloadTableTentPDF = async () => {
+    if (!party || !qrDataUrl) return;
+    const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+
+    for (let t = 1; t <= tableCount; t++) {
+      if (t > 1) pdf.addPage();
+      pdf.setDrawColor(200);
+      pdf.setLineDashPattern([3, 3], 0);
+      pdf.line(0, pageH / 2, pageW, pageH / 2);
+
+      pdf.setFontSize(28);
+      pdf.setTextColor(party.themeColor);
+      pdf.text(party.name, pageW / 2, 30, { align: "center" });
+      pdf.setFontSize(14);
+      pdf.setTextColor(100);
+      pdf.text(tableCount > 1 ? `Table ${t}` : "Share your photos!", pageW / 2, 42, { align: "center" });
+
+      const qrSize = 55;
+      pdf.addImage(qrDataUrl, "PNG", (pageW - qrSize) / 2, 48, qrSize, qrSize);
+
+      const bottomCenterY = pageH * 0.75;
+      pdf.setFontSize(20);
+      pdf.setTextColor(party.themeColor);
+      pdf.text("Scan to share your", pageW / 2, bottomCenterY - 15, { align: "center" });
+      pdf.text("photos & videos!", pageW / 2, bottomCenterY - 5, { align: "center" });
+      pdf.setFontSize(12);
+      pdf.setTextColor(130);
+      pdf.text("No app needed — just point your camera!", pageW / 2, bottomCenterY + 8, { align: "center" });
+      if (tableCount > 1) {
+        pdf.setFontSize(16);
+        pdf.setTextColor(party.themeColor);
+        pdf.text(`Table ${t}`, pageW / 2, bottomCenterY + 22, { align: "center" });
+      }
+    }
+    pdf.save(`partysnap-table-tent-${party.code}.pdf`);
+  };
+
   // ── Cover photo ─────────────────────────────────────────────
   const handleCoverFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    // Show local preview immediately
     const reader = new FileReader();
     reader.onload = (ev) => setCoverPreview(ev.target?.result as string);
     reader.readAsDataURL(file);
 
     setCoverUploading(true);
     setCoverMsg("");
-
     const fd = new FormData();
     fd.append("file", file);
-
     try {
-      const res = await fetch(`/api/parties/${partyId}/cover`, {
-        method: "POST",
-        body: fd,
-      });
+      const res = await fetch(`/api/parties/${partyId}/cover`, { method: "POST", body: fd });
       const data = await res.json();
       if (res.ok) {
         setCoverPreview(data.coverPhoto);
@@ -107,10 +170,7 @@ export default function PartySettings() {
     if (newTableCount < 1) return;
     setSavingTables(true);
     setTableMsg("");
-
-    // Find highest existing table number
     const maxExisting = tables.length > 0 ? Math.max(...tables.map((t) => t.number)) : 0;
-
     try {
       const results = await Promise.all(
         Array.from({ length: newTableCount }, (_, i) => {
@@ -136,11 +196,7 @@ export default function PartySettings() {
     const res = await fetch(`/api/parties/${partyId}/tables`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        number: table.number,
-        name: table.name,
-        guests: table.guests,
-      }),
+      body: JSON.stringify({ number: table.number, name: table.name, guests: table.guests }),
     });
     if (res.ok) {
       const updated = await res.json();
@@ -150,9 +206,7 @@ export default function PartySettings() {
   };
 
   const deleteTable = async (tableId: string) => {
-    await fetch(`/api/parties/${partyId}/tables?tableId=${tableId}`, {
-      method: "DELETE",
-    });
+    await fetch(`/api/parties/${partyId}/tables?tableId=${tableId}`, { method: "DELETE" });
     setTables((prev) => prev.filter((t) => t.id !== tableId));
   };
 
@@ -163,7 +217,6 @@ export default function PartySettings() {
       </div>
     );
   }
-
   if (!party) return <div className="p-8 text-center">Party not found</div>;
 
   const themeColor = party.themeColor;
@@ -184,6 +237,63 @@ export default function PartySettings() {
 
       <main className="max-w-3xl mx-auto px-4 py-8 space-y-8">
 
+        {/* ── QR Code ── */}
+        <section className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100">
+            <h2 className="font-semibold text-gray-900 text-lg">QR Code</h2>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Guests scan this to upload photos
+            </p>
+          </div>
+          <div className="p-6 flex flex-col items-center gap-4">
+            {qrDataUrl ? (
+              <div className="p-4 bg-white border border-gray-200 rounded-2xl shadow-sm">
+                <img src={qrDataUrl} alt="QR Code" className="w-52 h-52" />
+              </div>
+            ) : (
+              <div className="w-52 h-52 bg-gray-100 rounded-2xl animate-pulse" />
+            )}
+
+            <div className="text-center">
+              <p className="font-semibold" style={{ color: themeColor }}>{party.name}</p>
+              <p className="text-sm text-gray-500 font-mono mt-0.5">{party.code}</p>
+              <p className="text-xs text-gray-400 mt-1 break-all max-w-xs">{uploadUrl}</p>
+            </div>
+
+            <div className="w-full flex gap-3">
+              <button
+                onClick={downloadQRPng}
+                disabled={!qrDataUrl}
+                className="flex-1 py-2.5 px-4 text-white rounded-xl font-medium text-sm transition-colors disabled:opacity-50"
+                style={{ backgroundColor: themeColor }}
+              >
+                Download PNG
+              </button>
+
+              <div className="flex-1 bg-gray-50 border border-gray-200 rounded-xl p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-500 whitespace-nowrap">Table tent cards:</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={50}
+                    value={tableCount}
+                    onChange={(e) => setTableCount(parseInt(e.target.value) || 1)}
+                    className="w-16 px-2 py-1 border border-gray-300 rounded-lg text-sm text-center"
+                  />
+                </div>
+                <button
+                  onClick={downloadTableTentPDF}
+                  disabled={!qrDataUrl}
+                  className="w-full py-2 px-3 bg-purple-600 text-white rounded-lg font-medium text-sm hover:bg-purple-700 transition-colors disabled:opacity-50"
+                >
+                  Download PDF
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* ── Cover Photo ── */}
         <section className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100">
@@ -195,11 +305,7 @@ export default function PartySettings() {
           <div className="p-6">
             {coverPreview ? (
               <div className="relative">
-                <img
-                  src={coverPreview}
-                  alt="Cover"
-                  className="w-full h-52 object-cover rounded-xl"
-                />
+                <img src={coverPreview} alt="Cover" className="w-full h-52 object-cover rounded-xl" />
                 <div className="mt-3 flex gap-3">
                   <button
                     onClick={() => coverInputRef.current?.click()}
@@ -220,7 +326,6 @@ export default function PartySettings() {
                 onClick={() => coverInputRef.current?.click()}
                 disabled={coverUploading}
                 className="w-full h-40 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center gap-2 hover:border-indigo-400 hover:bg-indigo-50 transition-colors group"
-                style={{ borderColor: coverUploading ? themeColor : undefined }}
               >
                 {coverUploading ? (
                   <>
@@ -232,24 +337,14 @@ export default function PartySettings() {
                     <svg className="w-8 h-8 text-gray-400 group-hover:text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
-                    <span className="text-sm font-medium text-gray-600 group-hover:text-indigo-600">
-                      Click to upload a photo
-                    </span>
+                    <span className="text-sm font-medium text-gray-600 group-hover:text-indigo-600">Click to upload</span>
                     <span className="text-xs text-gray-400">JPG, PNG, WEBP up to 20MB</span>
                   </>
                 )}
               </button>
             )}
-            <input
-              ref={coverInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleCoverFile}
-            />
-            {coverMsg && (
-              <p className="mt-2 text-sm text-gray-600">{coverMsg}</p>
-            )}
+            <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={handleCoverFile} />
+            {coverMsg && <p className="mt-2 text-sm text-gray-600">{coverMsg}</p>}
           </div>
         </section>
 
@@ -262,12 +357,9 @@ export default function PartySettings() {
             </p>
           </div>
           <div className="p-6 space-y-5">
-            {/* Add tables */}
             <div className="flex items-center gap-3">
               <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  How many tables to add?
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">How many tables to add?</label>
                 <input
                   type="number"
                   min={1}
@@ -288,7 +380,6 @@ export default function PartySettings() {
             </div>
             {tableMsg && <p className="text-sm text-gray-600">{tableMsg}</p>}
 
-            {/* Table list */}
             {tables.length > 0 ? (
               <div className="space-y-3">
                 {tables.map((table) =>
@@ -313,9 +404,7 @@ export default function PartySettings() {
                 )}
               </div>
             ) : (
-              <p className="text-sm text-gray-400 text-center py-4">
-                No tables yet — add some above
-              </p>
+              <p className="text-sm text-gray-400 text-center py-4">No tables yet — add some above</p>
             )}
           </div>
         </section>
@@ -327,88 +416,46 @@ export default function PartySettings() {
 
 // ── Sub-components ────────────────────────────────────────────
 
-function TableRow({
-  table,
-  themeColor,
-  onEdit,
-  onDelete,
-}: {
-  table: Table;
-  themeColor: string;
-  onEdit: () => void;
-  onDelete: () => void;
+function TableRow({ table, themeColor, onEdit, onDelete }: {
+  table: Table; themeColor: string; onEdit: () => void; onDelete: () => void;
 }) {
   return (
     <div className="flex items-start gap-3 p-4 border border-gray-200 rounded-xl hover:border-gray-300 transition-colors">
-      <div
-        className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
-        style={{ backgroundColor: themeColor }}
-      >
+      <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0" style={{ backgroundColor: themeColor }}>
         {table.number}
       </div>
       <div className="flex-1 min-w-0">
-        {table.name && (
-          <p className="font-medium text-gray-800">{table.name}</p>
-        )}
+        {table.name && <p className="font-medium text-gray-800">{table.name}</p>}
         {table.guests.length > 0 ? (
-          <p className="text-sm text-gray-500 truncate">
-            {table.guests.filter(Boolean).join(", ")}
-          </p>
+          <p className="text-sm text-gray-500 truncate">{table.guests.filter(Boolean).join(", ")}</p>
         ) : (
           <p className="text-sm text-gray-400 italic">No guests added</p>
         )}
-        <p className="text-xs text-gray-400 mt-0.5">
-          {table.guests.filter(Boolean).length}/10 guests
-        </p>
+        <p className="text-xs text-gray-400 mt-0.5">{table.guests.filter(Boolean).length}/10 guests</p>
       </div>
       <div className="flex gap-2 flex-shrink-0">
-        <button
-          onClick={onEdit}
-          className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-        >
-          Edit
-        </button>
-        <button
-          onClick={onDelete}
-          className="px-3 py-1.5 text-sm text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-        >
-          ✕
-        </button>
+        <button onClick={onEdit} className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">Edit</button>
+        <button onClick={onDelete} className="px-3 py-1.5 text-sm text-red-500 hover:bg-red-50 rounded-lg transition-colors">✕</button>
       </div>
     </div>
   );
 }
 
-function TableEditor({
-  table,
-  themeColor,
-  onChange,
-  onSave,
-  onCancel,
-}: {
-  table: Table;
-  themeColor: string;
-  onChange: (t: Table) => void;
-  onSave: () => void;
-  onCancel: () => void;
+function TableEditor({ table, themeColor, onChange, onSave, onCancel }: {
+  table: Table; themeColor: string; onChange: (t: Table) => void; onSave: () => void; onCancel: () => void;
 }) {
   const setGuest = (index: number, value: string) => {
     const guests = [...table.guests];
     guests[index] = value;
-    // Remove trailing empty slots but keep filled ones
     while (guests.length > 0 && !guests[guests.length - 1]) guests.pop();
     onChange({ ...table, guests });
   };
-
   const guestSlots = Array.from({ length: 10 }, (_, i) => table.guests[i] || "");
 
   return (
     <div className="p-4 border-2 rounded-xl space-y-4" style={{ borderColor: themeColor }}>
       <div className="flex items-center gap-3">
-        <div
-          className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
-          style={{ backgroundColor: themeColor }}
-        >
+        <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0" style={{ backgroundColor: themeColor }}>
           {table.number}
         </div>
         <input
@@ -419,11 +466,8 @@ function TableEditor({
           className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
         />
       </div>
-
       <div>
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-          Guests (up to 10)
-        </p>
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Guests (up to 10)</p>
         <div className="grid grid-cols-2 gap-2">
           {guestSlots.map((guest, i) => (
             <input
@@ -437,21 +481,9 @@ function TableEditor({
           ))}
         </div>
       </div>
-
       <div className="flex gap-2 justify-end">
-        <button
-          onClick={onCancel}
-          className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={onSave}
-          className="px-4 py-2 text-sm text-white rounded-lg font-medium transition-colors"
-          style={{ backgroundColor: themeColor }}
-        >
-          Save Table
-        </button>
+        <button onClick={onCancel} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">Cancel</button>
+        <button onClick={onSave} className="px-4 py-2 text-sm text-white rounded-lg font-medium transition-colors" style={{ backgroundColor: themeColor }}>Save Table</button>
       </div>
     </div>
   );

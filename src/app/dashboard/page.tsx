@@ -19,6 +19,19 @@ export default function Dashboard() {
   const router = useRouter();
   const [parties, setParties] = useState<Party[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  const deleteParty = async (id: string) => {
+    setDeletingId(id);
+    try {
+      await fetch(`/api/parties/${id}`, { method: "DELETE" });
+      setParties((prev) => prev.filter((p) => p.id !== id));
+    } finally {
+      setDeletingId(null);
+      setConfirmDeleteId(null);
+    }
+  };
 
   useEffect(() => {
     if (status === "unauthenticated") router.replace("/");
@@ -123,12 +136,6 @@ export default function Dashboard() {
 
                   <div className="flex gap-2 flex-wrap">
                     <Link
-                      href={`/party/${party.id}/qr`}
-                      className="flex-1 text-center px-3 py-2 text-sm bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 transition-colors"
-                    >
-                      QR Code
-                    </Link>
-                    <Link
                       href={`/slideshow/${party.id}`}
                       className="flex-1 text-center px-3 py-2 text-sm bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition-colors"
                     >
@@ -147,6 +154,33 @@ export default function Dashboard() {
                       Edit
                     </Link>
                   </div>
+
+                  {/* Delete */}
+                  {confirmDeleteId === party.id ? (
+                    <div className="mt-3 flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl">
+                      <p className="text-sm text-red-700 flex-1">Delete this party and all its photos?</p>
+                      <button
+                        onClick={() => deleteParty(party.id)}
+                        disabled={deletingId === party.id}
+                        className="px-3 py-1.5 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 disabled:opacity-50"
+                      >
+                        {deletingId === party.id ? "Deleting..." : "Yes, delete"}
+                      </button>
+                      <button
+                        onClick={() => setConfirmDeleteId(null)}
+                        className="px-3 py-1.5 bg-white text-gray-600 text-sm rounded-lg border border-gray-200 hover:bg-gray-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmDeleteId(party.id)}
+                      className="mt-3 w-full text-sm text-red-400 hover:text-red-600 hover:bg-red-50 py-1.5 rounded-lg transition-colors"
+                    >
+                      Delete party
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
