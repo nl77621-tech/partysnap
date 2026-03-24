@@ -58,6 +58,7 @@ export default function SlideshowPage() {
   const [shuffle, setShuffle] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [videoModal, setVideoModal] = useState<{ fileId: string; fileName: string } | null>(null);
   const controlsTimeout = useRef<NodeJS.Timeout>();
   const pollInterval = useRef<NodeJS.Timeout>();
 
@@ -177,6 +178,32 @@ export default function SlideshowPage() {
       onMouseMove={resetControlsTimer}
       style={{ cursor: showControls ? "default" : "none" }}
     >
+      {/* Video modal */}
+      {videoModal && (
+        <div
+          className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4"
+          onClick={() => setVideoModal(null)}
+        >
+          <button
+            className="absolute top-4 right-4 text-white/80 hover:text-white text-3xl leading-none z-10"
+            onClick={() => setVideoModal(null)}
+          >
+            ✕
+          </button>
+          <div
+            className="w-full max-w-3xl aspect-video rounded-xl overflow-hidden shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <iframe
+              src={`https://drive.google.com/file/d/${videoModal.fileId}/preview`}
+              className="w-full h-full"
+              allow="autoplay"
+              allowFullScreen
+            />
+          </div>
+        </div>
+      )}
+
       {/* Slideshow Mode */}
       {mode === "slideshow" && currentPhoto && (
         <div className="absolute inset-0 flex items-center justify-center">
@@ -227,13 +254,16 @@ export default function SlideshowPage() {
               className="relative rounded-lg overflow-hidden bg-gray-900 aspect-square animate-slideUp"
             >
               {upload.mediaType === "video" ? (
-                // Video tile — never try to load a Drive image URL for videos
-                <div className="w-full h-full flex flex-col items-center justify-center bg-gray-800 gap-1">
+                // Video tile — click to play in modal
+                <button
+                  className="w-full h-full flex flex-col items-center justify-center bg-gray-800 gap-1 hover:bg-gray-700 transition-colors"
+                  onClick={() => upload.driveFileId && setVideoModal({ fileId: upload.driveFileId, fileName: upload.fileName })}
+                >
                   <svg className="w-10 h-10 text-white/70" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M8 5v14l11-7z" />
                   </svg>
-                  <span className="text-white/40 text-xs px-2 truncate max-w-full">Video</span>
-                </div>
+                  <span className="text-white/40 text-xs px-2 truncate max-w-full">Tap to play</span>
+                </button>
               ) : getDisplayUrl(upload.driveThumbnail, upload.driveFileId, "w400") ? (
                 <img
                   src={getDisplayUrl(upload.driveThumbnail, upload.driveFileId, "w400")!}

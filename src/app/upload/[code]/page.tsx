@@ -87,6 +87,7 @@ export default function GuestUploadPage() {
   const params = useParams();
   const [party, setParty] = useState<Party | null>(null);
   const [lightbox, setLightbox] = useState<{ src: string; caption?: string | null } | null>(null);
+  const [videoModal, setVideoModal] = useState<string | null>(null); // Drive fileId
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploads, setUploads] = useState<UploadItem[]>([]);
@@ -220,6 +221,32 @@ export default function GuestUploadPage() {
           caption={lightbox.caption}
           onClose={() => setLightbox(null)}
         />
+      )}
+
+      {/* Video modal */}
+      {videoModal && (
+        <div
+          className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4"
+          onClick={() => setVideoModal(null)}
+        >
+          <button
+            className="absolute top-4 right-4 text-white/80 hover:text-white text-3xl leading-none z-10"
+            onClick={() => setVideoModal(null)}
+          >
+            ✕
+          </button>
+          <div
+            className="w-full max-w-lg aspect-video rounded-xl overflow-hidden shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <iframe
+              src={`https://drive.google.com/file/d/${videoModal}/preview`}
+              className="w-full h-full"
+              allow="autoplay"
+              allowFullScreen
+            />
+          </div>
+        </div>
       )}
 
       {/* Header — with optional cover photo */}
@@ -392,15 +419,18 @@ export default function GuestUploadPage() {
                     className="aspect-square rounded-xl overflow-hidden bg-gray-100 relative"
                   >
                     {u.mediaType === "video" ? (
-                      // Video placeholder — styled tile with play icon
-                      <div className="w-full h-full flex flex-col items-center justify-center bg-gray-800 gap-1">
+                      // Video tile — tap to play
+                      <button
+                        className="w-full h-full flex flex-col items-center justify-center bg-gray-800 gap-1 active:bg-gray-700 transition-colors"
+                        onClick={() => u.driveFileId && setVideoModal(u.driveFileId)}
+                      >
                         <svg className="w-8 h-8 text-white/70" fill="currentColor" viewBox="0 0 24 24">
                           <path d="M8 5v14l11-7z" />
                         </svg>
                         <span className="text-white/50 text-xs truncate px-2 max-w-full">
-                          {u.fileName}
+                          Tap to play
                         </span>
-                      </div>
+                      </button>
                     ) : displayUrl ? (
                       <button
                         className="w-full h-full block"
