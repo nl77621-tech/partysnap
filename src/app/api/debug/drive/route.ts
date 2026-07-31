@@ -5,8 +5,21 @@ import { prisma } from "@/lib/db";
 import { getAuthenticatedClient } from "@/lib/google-auth";
 import { google } from "googleapis";
 
+// Diagnostic endpoint — disabled in production unless explicitly enabled via
+// ENABLE_DEBUG_ENDPOINTS, so it can't leak token/Drive state on the live site.
+function debugEndpointsEnabled() {
+  return (
+    process.env.NODE_ENV !== "production" ||
+    process.env.ENABLE_DEBUG_ENDPOINTS === "true"
+  );
+}
+
 // GET /api/debug/drive — tests Drive connectivity for the signed-in host
 export async function GET() {
+  if (!debugEndpointsEnabled()) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   const session = (await getSession()) as ExtendedSession | null;
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Not signed in" }, { status: 401 });

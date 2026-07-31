@@ -16,10 +16,23 @@ export async function GET(
     where.uploadedAt = { gt: new Date(after) };
   }
 
+  // Public endpoint (used by the unauthenticated TV slideshow). Only return
+  // fields the display needs — never expose the per-guest sessionId.
   const uploads = await prisma.upload.findMany({
     where,
     orderBy: { uploadedAt: "asc" },
     take: Math.min(limit, 200),
+    select: {
+      id: true,
+      fileName: true,
+      driveFileId: true,
+      driveThumbnail: true,
+      caption: true,
+      tableNumber: true,
+      mediaType: true,
+      fileSize: true,
+      uploadedAt: true,
+    },
   });
 
   return NextResponse.json(uploads);

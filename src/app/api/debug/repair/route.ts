@@ -9,6 +9,14 @@ import { uploadFileToDrive } from "@/lib/google-drive";
 // Only works if the upload file is still accessible — in this app files are
 // NOT stored locally, so this endpoint just reports what's missing.
 export async function GET(req: NextRequest) {
+  // Disabled in production unless explicitly enabled via ENABLE_DEBUG_ENDPOINTS.
+  if (
+    process.env.NODE_ENV === "production" &&
+    process.env.ENABLE_DEBUG_ENDPOINTS !== "true"
+  ) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   const session = (await getSession()) as ExtendedSession | null;
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Not signed in" }, { status: 401 });

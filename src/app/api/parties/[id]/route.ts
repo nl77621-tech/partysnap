@@ -17,7 +17,19 @@ export async function GET(
     return NextResponse.json({ error: "Party not found" }, { status: 404 });
   }
 
-  return NextResponse.json(party);
+  // This endpoint is public (used by the unauthenticated TV slideshow). Only the
+  // host gets the full record; everyone else gets display-safe fields and never
+  // sees driveFolderId, hostId, or the upload code.
+  const session = (await getSession()) as ExtendedSession | null;
+  if (session?.user?.id === party.hostId) {
+    return NextResponse.json(party);
+  }
+
+  const { driveFolderId, hostId, code, ...publicFields } = party;
+  void driveFolderId;
+  void hostId;
+  void code;
+  return NextResponse.json(publicFields);
 }
 
 // PUT /api/parties/:id
