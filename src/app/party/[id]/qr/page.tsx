@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { jsPDF } from "jspdf";
 import QRCode from "qrcode";
+import { PageLoader, ArrowLeftIcon, QrIcon } from "@/components/Icons";
 
 interface Party {
   id: string;
@@ -105,77 +106,191 @@ export default function QRCodePage() {
     pdf.save(`partysnap-table-tent-${party.code}.pdf`);
   };
 
-  if (loading) {
+  if (loading) return <PageLoader />;
+
+  if (!party) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
+      <div className="min-h-screen bg-paper">
+        <div className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-6 text-center">
+          <h1 className="text-3xl font-semibold text-ink-900">Party not found</h1>
+          <p className="mt-2 text-[15px] text-ink-600">
+            This party may have been deleted, or the link is incorrect.
+          </p>
+          <Link href="/dashboard" className="btn-secondary mt-7">
+            <ArrowLeftIcon className="h-[18px] w-[18px]" />
+            Back to dashboard
+          </Link>
+        </div>
       </div>
     );
   }
 
-  if (!party) {
-    return <div className="min-h-screen flex items-center justify-center">Party not found</div>;
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center gap-4">
-          <Link href="/dashboard" className="text-gray-500 hover:text-gray-700">
-            &larr; Dashboard
+    <div className="min-h-screen bg-paper">
+      <header className="app-header">
+        <div className="mx-auto flex max-w-6xl items-center gap-3 px-6 py-4">
+          <Link href="/dashboard" className="btn-ghost -ml-3">
+            <ArrowLeftIcon className="h-[18px] w-[18px]" />
+            Dashboard
           </Link>
-          <h1 className="text-xl font-bold text-gray-900">QR Code — {party.name}</h1>
+          <span aria-hidden className="h-5 w-px bg-ink-200" />
+          <span className="flex min-w-0 items-center gap-2 text-sm font-medium text-ink-600">
+            <span
+              aria-hidden
+              className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
+              style={{ backgroundColor: party.themeColor }}
+            />
+            <span className="truncate">{party.name}</span>
+          </span>
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 py-8 text-center">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 mb-8">
-          {qrDataUrl ? (
-            <img src={qrDataUrl} alt="QR Code" className="mx-auto w-64 h-64 mb-4" />
-          ) : (
-            <div className="w-64 h-64 mx-auto mb-4 bg-gray-100 rounded-lg animate-pulse" />
-          )}
-          <p className="text-lg font-semibold" style={{ color: party.themeColor }}>
-            {party.name}
+      <main className="mx-auto max-w-4xl px-6 py-12">
+        <div className="mb-10 animate-rise-in">
+          <p className="eyebrow mb-2">
+            {party.name} · {party.code}
           </p>
-          <p className="text-sm text-gray-500 font-mono mt-1">{party.code}</p>
-          <p className="text-xs text-gray-400 mt-2 break-all">{uploadUrl}</p>
+          <h1 className="text-4xl font-semibold text-ink-900 sm:text-5xl">QR code</h1>
+          <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-ink-600">
+            Guests scan this to upload their photos — no app needed.
+          </p>
         </div>
 
-        <div className="space-y-4">
-          <button
-            onClick={downloadPNG}
-            disabled={!qrDataUrl}
-            className="w-full py-3 px-6 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50"
-          >
-            Download QR as PNG
-          </button>
+        <div className="space-y-8">
+          <section className="card animate-rise-in overflow-hidden">
+            <div className="flex flex-col items-center gap-8 px-6 py-8 sm:flex-row sm:items-start sm:px-8">
+              <div className="flex-shrink-0 rounded-2xl border border-ink-200 bg-white p-4 shadow-lift">
+                {qrDataUrl ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={qrDataUrl}
+                    alt={`QR code linking to the upload page for ${party.name}`}
+                    className="h-56 w-56"
+                  />
+                ) : (
+                  <div className="h-56 w-56 animate-pulse rounded-xl bg-ink-100" />
+                )}
+              </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h3 className="font-semibold text-gray-900 mb-3">Table Tent PDF</h3>
-            <div className="flex items-center gap-4 mb-4 justify-center">
-              <label className="text-sm text-gray-600">Number of tables:</label>
-              <input
-                type="number"
-                min={1}
-                max={50}
-                value={tableCount}
-                onChange={(e) => setTableCount(parseInt(e.target.value) || 1)}
-                className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-center"
-              />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-xl bg-ink-900 text-paper">
+                    <QrIcon className="h-[18px] w-[18px]" />
+                  </span>
+                  <h2 className="truncate text-lg font-semibold text-ink-900">
+                    {party.name}
+                  </h2>
+                </div>
+
+                <p className="eyebrow mb-2 mt-6">Upload link</p>
+                <p className="break-all rounded-xl border border-ink-200 bg-ink-50 px-3 py-2.5 font-mono text-xs leading-relaxed text-ink-700">
+                  {uploadUrl || "—"}
+                </p>
+
+                <div className="mt-5 flex flex-wrap gap-3">
+                  <button
+                    onClick={downloadPNG}
+                    disabled={!qrDataUrl}
+                    className="btn-secondary"
+                  >
+                    <DownloadIcon className="h-[18px] w-[18px]" />
+                    Download PNG
+                  </button>
+                </div>
+              </div>
             </div>
-            <button
-              onClick={downloadTableTentPDF}
-              disabled={!qrDataUrl}
-              className="w-full py-3 px-6 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors disabled:opacity-50"
-            >
-              Download Table Tent PDF ({tableCount} {tableCount === 1 ? "card" : "cards"})
-            </button>
-          </div>
+          </section>
+
+          <section
+            className="card animate-rise-in overflow-hidden"
+            style={{ animationDelay: "60ms" }}
+          >
+            <div className="flex items-start gap-3 border-b border-ink-200/70 px-6 py-5 sm:px-8">
+              <span className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-xl bg-ink-900 text-paper">
+                <PrinterIcon className="h-[18px] w-[18px]" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-lg font-semibold text-ink-900">
+                  Printable table tents
+                </h2>
+                <p className="mt-0.5 text-sm text-ink-500">
+                  A fold-in-half A4 card per table, ready for the printer.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-end gap-3 px-6 py-6 sm:px-8">
+              <div>
+                <label htmlFor="tent-count" className="label mb-1.5 font-sans text-xs">
+                  Number of tables
+                </label>
+                <input
+                  id="tent-count"
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={tableCount}
+                  onChange={(e) => setTableCount(parseInt(e.target.value) || 1)}
+                  className="input w-24 px-3 py-2 text-center text-sm"
+                />
+              </div>
+              <button
+                onClick={downloadTableTentPDF}
+                disabled={!qrDataUrl}
+                className="btn-secondary"
+              >
+                <PrinterIcon className="h-[18px] w-[18px]" />
+                Download PDF ({tableCount} {tableCount === 1 ? "card" : "cards"})
+              </button>
+            </div>
+          </section>
         </div>
 
         <canvas ref={canvasRef} className="hidden" />
       </main>
     </div>
+  );
+}
+
+// ── Local one-off icons (same line style as @/components/Icons) ─
+
+type IconProps = React.SVGProps<SVGSVGElement>;
+
+function DownloadIcon(p: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.6}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="w-5 h-5"
+      {...p}
+    >
+      <path d="M12 4v12m0 0 5-5m-5 5-5-5" />
+      <path d="M20 16.5v2A2.5 2.5 0 0 1 17.5 21h-11A2.5 2.5 0 0 1 4 18.5v-2" />
+    </svg>
+  );
+}
+
+function PrinterIcon(p: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.6}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="w-5 h-5"
+      {...p}
+    >
+      <path d="M7 9V4.5A1.5 1.5 0 0 1 8.5 3h7A1.5 1.5 0 0 1 17 4.5V9" />
+      <path d="M7 17H5.5A2.5 2.5 0 0 1 3 14.5v-3A2.5 2.5 0 0 1 5.5 9h13A2.5 2.5 0 0 1 21 11.5v3a2.5 2.5 0 0 1-2.5 2.5H17" />
+      <rect x="7" y="14" width="10" height="7" rx="1.5" />
+    </svg>
   );
 }

@@ -2,6 +2,16 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
+import {
+  PageLoader,
+  CameraIcon,
+  ImageIcon,
+  VideoIcon,
+  PlayIcon,
+  CheckIcon,
+  CloseIcon,
+  ZoomIcon,
+} from "@/components/Icons";
 
 // Normalize Drive thumbnail URLs for reliable display in <img> tags
 function getDisplayUrl(thumbnail: string | null, fileId: string | null, size = "w400"): string | null {
@@ -29,6 +39,7 @@ interface Party {
 }
 
 interface UploadItem {
+  id: string;
   file: File;
   progress: number;
   status: "pending" | "uploading" | "done" | "error";
@@ -45,7 +56,6 @@ interface ExistingUpload {
   caption: string | null;
 }
 
-// Lightbox component — click a gallery photo to see it full-size
 function Lightbox({
   src,
   caption,
@@ -55,28 +65,36 @@ function Lightbox({
   caption?: string | null;
   onClose: () => void;
 }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+      className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-ink-900/95 p-4 backdrop-blur-sm"
       onClick={onClose}
     >
       <button
-        className="absolute top-4 right-4 text-white/80 hover:text-white text-3xl leading-none"
+        aria-label="Close"
+        className="absolute right-4 top-4 grid h-11 w-11 place-items-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
         onClick={onClose}
       >
-        ✕
+        <CloseIcon className="h-5 w-5" />
       </button>
       <div
-        className="max-w-full max-h-full flex flex-col items-center gap-3"
+        className="flex max-h-full max-w-full flex-col items-center gap-4"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={src}
-          alt=""
-          className="max-w-[90vw] max-h-[80vh] rounded-xl object-contain"
+          alt={caption || ""}
+          className="max-h-[80vh] max-w-[90vw] rounded-2xl object-contain shadow-float"
         />
         {caption && (
-          <p className="text-white/80 text-sm text-center">{caption}</p>
+          <p className="max-w-md text-center text-sm text-white/75">{caption}</p>
         )}
       </div>
     </div>
@@ -87,7 +105,7 @@ export default function GuestUploadPage() {
   const params = useParams();
   const [party, setParty] = useState<Party | null>(null);
   const [lightbox, setLightbox] = useState<{ src: string; caption?: string | null } | null>(null);
-  const [videoModal, setVideoModal] = useState<string | null>(null); // Drive fileId
+  const [videoModal, setVideoModal] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploads, setUploads] = useState<UploadItem[]>([]);
@@ -95,6 +113,7 @@ export default function GuestUploadPage() {
   const [globalCaption, setGlobalCaption] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const nextId = useRef(0);
 
   useEffect(() => {
     fetch(`/api/parties/lookup?code=${params.code}`)
@@ -107,7 +126,6 @@ export default function GuestUploadPage() {
       })
       .then((p) => {
         setParty(p);
-        // Fetch existing uploads for gallery
         return fetch(`/api/parties/${p.id}/uploads?limit=200`);
       })
       .then((r) => r.json())
@@ -117,9 +135,10 @@ export default function GuestUploadPage() {
   }, [params.code]);
 
   const handleFiles = (files: FileList | null) => {
-    if (!files) return;
+    if (!files?.length) return;
 
     const newUploads: UploadItem[] = Array.from(files).map((file) => ({
+      id: `u${nextId.current++}`,
       file,
       progress: 0,
       status: "pending",
@@ -128,18 +147,16 @@ export default function GuestUploadPage() {
     }));
 
     setUploads((prev) => [...prev, ...newUploads]);
-
-    // Start uploading each file
-    newUploads.forEach((item, index) => {
-      const actualIndex = uploads.length + index;
-      uploadFile(item, actualIndex);
-    });
+    // Track each item by its own id — indexes go stale when a second batch is
+    // added while the first is still uploading.
+    newUploads.forEach(uploadFile);
   };
 
-  const uploadFile = async (item: UploadItem, index: number) => {
-    setUploads((prev) =>
-      prev.map((u, i) => (i === index ? { ...u, status: "uploading" } : u))
-    );
+  const patch = (id: string, changes: Partial<UploadItem>) =>
+    setUploads((prev) => prev.map((u) => (u.id === id ? { ...u, ...changes } : u)));
+
+  const uploadFile = async (item: UploadItem) => {
+    patch(item.id, { status: "uploading" });
 
     const formData = new FormData();
     formData.append("file", item.file);
@@ -154,57 +171,37 @@ export default function GuestUploadPage() {
 
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) {
-          const progress = Math.round((e.loaded / e.total) * 100);
-          setUploads((prev) =>
-            prev.map((u, i) => (i === index ? { ...u, progress } : u))
-          );
+          patch(item.id, { progress: Math.round((e.loaded / e.total) * 100) });
         }
       };
 
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) {
-          setUploads((prev) =>
-            prev.map((u, i) =>
-              i === index ? { ...u, status: "done", progress: 100 } : u
-            )
-          );
+          patch(item.id, { status: "done", progress: 100 });
         } else {
-          setUploads((prev) =>
-            prev.map((u, i) => (i === index ? { ...u, status: "error" } : u))
-          );
+          patch(item.id, { status: "error" });
         }
       };
 
-      xhr.onerror = () => {
-        setUploads((prev) =>
-          prev.map((u, i) => (i === index ? { ...u, status: "error" } : u))
-        );
-      };
-
+      xhr.onerror = () => patch(item.id, { status: "error" });
       xhr.send(formData);
     } catch {
-      setUploads((prev) =>
-        prev.map((u, i) => (i === index ? { ...u, status: "error" } : u))
-      );
+      patch(item.id, { status: "error" });
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
-      </div>
-    );
-  }
+  if (loading) return <PageLoader />;
 
   if (error || !party) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
-        <div className="text-6xl mb-4">😔</div>
-        <h1 className="text-xl font-bold text-gray-900 mb-2">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-paper px-6 text-center">
+        <div className="mb-5 grid h-14 w-14 place-items-center rounded-2xl bg-ink-100 text-ink-400">
+          <CameraIcon className="h-7 w-7" />
+        </div>
+        <h1 className="mb-2 text-2xl font-semibold text-ink-900">
           {error || "Party not found"}
         </h1>
-        <p className="text-gray-500">Check the QR code and try again.</p>
+        <p className="text-ink-500">Check the QR code and try again.</p>
       </div>
     );
   }
@@ -213,8 +210,10 @@ export default function GuestUploadPage() {
   const themeColor = party.themeColor;
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: `${themeColor}10` }}>
-      {/* Lightbox */}
+    <div
+      className="min-h-screen bg-paper pb-16"
+      style={{ "--tc": themeColor } as React.CSSProperties}
+    >
       {lightbox && (
         <Lightbox
           src={lightbox.src}
@@ -223,25 +222,25 @@ export default function GuestUploadPage() {
         />
       )}
 
-      {/* Video modal */}
       {videoModal && (
         <div
-          className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4"
+          className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-ink-900/95 p-4 backdrop-blur-sm"
           onClick={() => setVideoModal(null)}
         >
           <button
-            className="absolute top-4 right-4 text-white/80 hover:text-white text-3xl leading-none z-10"
+            aria-label="Close"
+            className="absolute right-4 top-4 z-10 grid h-11 w-11 place-items-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
             onClick={() => setVideoModal(null)}
           >
-            ✕
+            <CloseIcon className="h-5 w-5" />
           </button>
           <div
-            className="w-full max-w-lg aspect-video rounded-xl overflow-hidden shadow-2xl"
+            className="aspect-video w-full max-w-lg overflow-hidden rounded-2xl shadow-float"
             onClick={(e) => e.stopPropagation()}
           >
             <iframe
               src={`https://drive.google.com/file/d/${videoModal}/preview`}
-              className="w-full h-full"
+              className="h-full w-full"
               allow="autoplay"
               allowFullScreen
             />
@@ -249,30 +248,39 @@ export default function GuestUploadPage() {
         </div>
       )}
 
-      {/* Header — with optional cover photo */}
-      <div
-        className="relative text-center text-white overflow-hidden"
-        style={{ background: `linear-gradient(135deg, ${themeColor}, ${themeColor}dd)` }}
-      >
+      {/* Header */}
+      <header className="relative overflow-hidden text-white">
+        <div
+          className="absolute inset-0"
+          style={{
+            background: `linear-gradient(150deg, ${themeColor}, ${themeColor}c0)`,
+          }}
+        />
         {party.coverPhoto && (
-          <img
-            src={party.coverPhoto}
-            alt=""
-            className="absolute inset-0 w-full h-full object-cover opacity-30"
-          />
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={party.coverPhoto}
+              alt=""
+              className="absolute inset-0 h-full w-full scale-110 object-cover opacity-40 blur-[2px]"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-black/10" />
+          </>
         )}
-        <div className={`relative z-10 ${party.coverPhoto ? "pt-12 pb-10" : "pt-8 pb-6"} px-4`}>
+
+        <div className="relative z-10 px-6 pb-10 pt-12 text-center">
           {party.coverPhoto && (
-            <div className="mb-4 flex justify-center">
-              <img
-                src={party.coverPhoto}
-                alt="Cover"
-                className="w-24 h-24 rounded-full object-cover border-4 border-white/40 shadow-lg"
-              />
-            </div>
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={party.coverPhoto}
+              alt=""
+              className="mx-auto mb-5 h-24 w-24 rounded-full border-4 border-white/70 object-cover shadow-float"
+            />
           )}
-          <h1 className="text-2xl font-bold mb-1">{party.name}</h1>
-          <p className="text-sm opacity-80">
+          <h1 className="text-balance font-display text-[clamp(1.75rem,7vw,2.5rem)] font-semibold leading-tight drop-shadow-sm">
+            {party.name}
+          </h1>
+          <p className="mt-2 text-sm font-medium uppercase tracking-[0.12em] text-white/80">
             {new Date(party.date).toLocaleDateString("en-US", {
               weekday: "long",
               month: "long",
@@ -280,48 +288,46 @@ export default function GuestUploadPage() {
             })}
           </p>
         </div>
-      </div>
 
-      <div className="max-w-lg mx-auto px-4 py-6 space-y-4">
-        {/* Caption */}
+        {/* Curved transition into the page body */}
+        <div className="relative z-10 h-6 rounded-t-3xl bg-paper" />
+      </header>
+
+      <div className="mx-auto max-w-lg space-y-4 px-5">
+        <div className="text-center">
+          <p className="eyebrow">Share your photos</p>
+        </div>
+
         <input
           type="text"
           placeholder="Add a caption (optional)"
           value={globalCaption}
           onChange={(e) => setGlobalCaption(e.target.value)}
-          className="w-full px-4 py-3 border border-gray-200 rounded-xl text-center focus:ring-2 focus:outline-none"
-          style={{ focusRingColor: themeColor } as React.CSSProperties}
+          className="input text-center focus:border-[var(--tc)]"
         />
 
-        {/* Upload Buttons */}
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="w-full py-5 rounded-2xl text-white font-semibold text-lg shadow-lg active:scale-95 transition-transform"
+          className="w-full rounded-2xl py-5 text-base font-semibold text-white shadow-lift transition-transform active:scale-[0.98]"
           style={{ backgroundColor: themeColor }}
         >
-          <span className="flex items-center justify-center gap-2">
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            Upload Photos & Videos
+          <span className="flex items-center justify-center gap-2.5">
+            <ImageIcon className="h-[22px] w-[22px]" />
+            Choose photos &amp; videos
           </span>
         </button>
 
         <button
           onClick={() => cameraInputRef.current?.click()}
-          className="w-full py-4 rounded-2xl border-2 font-semibold text-lg active:scale-95 transition-transform"
+          className="w-full rounded-2xl border-2 bg-white py-4 text-base font-semibold transition-transform active:scale-[0.98]"
           style={{ borderColor: themeColor, color: themeColor }}
         >
-          <span className="flex items-center justify-center gap-2">
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            Take a Photo
+          <span className="flex items-center justify-center gap-2.5">
+            <CameraIcon className="h-[22px] w-[22px]" />
+            Take a photo
           </span>
         </button>
 
-        {/* Hidden File Inputs */}
         <input
           ref={fileInputRef}
           type="file"
@@ -339,42 +345,44 @@ export default function GuestUploadPage() {
           onChange={(e) => handleFiles(e.target.files)}
         />
 
-        {/* Upload Progress */}
+        {/* Upload progress */}
         {uploads.length > 0 && (
-          <div className="space-y-3">
+          <div className="space-y-2.5 pt-2">
             {completedCount > 0 && (
-              <div className="text-center py-3">
-                <div className="text-3xl mb-1">🎉</div>
-                <p className="font-semibold text-gray-700">
-                  {completedCount} {completedCount === 1 ? "file" : "files"} uploaded!
-                </p>
+              <div
+                className="animate-rise-in flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold"
+                style={{ backgroundColor: `${themeColor}14`, color: themeColor }}
+              >
+                <CheckIcon className="h-[18px] w-[18px]" />
+                {completedCount} {completedCount === 1 ? "file" : "files"} shared —
+                thank you!
               </div>
             )}
 
-            {uploads.map((item, i) => (
+            {uploads.map((item) => (
               <div
-                key={i}
-                className="bg-white rounded-xl border border-gray-200 p-3 flex items-center gap-3 animate-slideUp"
+                key={item.id}
+                className="animate-rise-in card flex items-center gap-3 p-3"
               >
                 {item.preview ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
                   <img
                     src={item.preview}
                     alt=""
-                    className="w-14 h-14 rounded-lg object-cover flex-shrink-0"
+                    className="h-14 w-14 flex-shrink-0 rounded-lg object-cover"
                   />
                 ) : (
-                  <div className="w-14 h-14 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
-                    <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
+                  <div className="grid h-14 w-14 flex-shrink-0 place-items-center rounded-lg bg-ink-100 text-ink-400">
+                    <VideoIcon className="h-6 w-6" />
                   </div>
                 )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-700 truncate">
+
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-ink-800">
                     {item.file.name}
                   </p>
                   {item.status === "uploading" && (
-                    <div className="mt-1.5 h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-ink-100">
                       <div
                         className="h-full rounded-full transition-all duration-300"
                         style={{
@@ -385,55 +393,68 @@ export default function GuestUploadPage() {
                     </div>
                   )}
                   {item.status === "done" && (
-                    <p className="text-xs text-green-600 mt-0.5">Uploaded!</p>
+                    <p className="mt-0.5 text-xs text-emerald-600">Shared</p>
                   )}
                   {item.status === "error" && (
-                    <p className="text-xs text-red-500 mt-0.5">Failed — tap to retry</p>
+                    <button
+                      onClick={() => uploadFile(item)}
+                      className="mt-0.5 text-xs font-medium text-red-600 underline underline-offset-2"
+                    >
+                      Failed — tap to retry
+                    </button>
                   )}
                 </div>
+
                 {item.status === "done" && (
-                  <svg className="w-6 h-6 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
+                  <span className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-full bg-emerald-50 text-emerald-600">
+                    <CheckIcon className="h-4 w-4" />
+                  </span>
                 )}
               </div>
             ))}
           </div>
         )}
 
-        {/* Party Gallery */}
+        {/* Gallery */}
         {existingUploads.length > 0 && (
-          <div className="pt-4">
-            <h2 className="text-center text-sm font-semibold text-gray-500 mb-3">
-              📸 {existingUploads.length} photo{existingUploads.length !== 1 ? "s" : ""} shared so far
-            </h2>
+          <section className="pt-6">
+            <div className="mb-3 flex items-center gap-3">
+              <h2 className="font-sans text-sm font-semibold text-ink-700">
+                {existingUploads.length}{" "}
+                {existingUploads.length === 1 ? "memory" : "memories"} so far
+              </h2>
+              <div className="h-px flex-1 bg-ink-200" />
+            </div>
+
             <div className="grid grid-cols-3 gap-1.5">
               {existingUploads.map((u) => {
-                // Only use image CDN URL for images — video file IDs don't render as images
-                const displayUrl = u.mediaType === "image"
-                  ? getDisplayUrl(u.driveThumbnail, u.driveFileId)
-                  : null;
+                const displayUrl =
+                  u.mediaType === "image"
+                    ? getDisplayUrl(u.driveThumbnail, u.driveFileId)
+                    : null;
+
                 return (
                   <div
                     key={u.id}
-                    className="aspect-square rounded-xl overflow-hidden bg-gray-100 relative"
+                    className="relative aspect-square overflow-hidden rounded-xl bg-ink-100"
                   >
                     {u.mediaType === "video" ? (
-                      // Video tile — tap to play
                       <button
-                        className="w-full h-full flex flex-col items-center justify-center bg-gray-800 gap-1 active:bg-gray-700 transition-colors"
+                        aria-label={`Play ${u.fileName}`}
+                        className="flex h-full w-full flex-col items-center justify-center gap-1.5 bg-ink-800 transition-colors active:bg-ink-700"
                         onClick={() => u.driveFileId && setVideoModal(u.driveFileId)}
                       >
-                        <svg className="w-8 h-8 text-white/70" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M8 5v14l11-7z" />
-                        </svg>
-                        <span className="text-white/50 text-xs truncate px-2 max-w-full">
-                          Tap to play
+                        <span className="grid h-9 w-9 place-items-center rounded-full bg-white/15 text-white">
+                          <PlayIcon className="ml-0.5 h-4 w-4" />
+                        </span>
+                        <span className="text-[10px] font-medium uppercase tracking-wider text-white/60">
+                          Video
                         </span>
                       </button>
                     ) : displayUrl ? (
                       <button
-                        className="w-full h-full block"
+                        aria-label={u.caption || `View ${u.fileName}`}
+                        className="group block h-full w-full"
                         onClick={() =>
                           setLightbox({
                             src: getDisplayUrl(u.driveThumbnail, u.driveFileId, "w1600")!,
@@ -441,32 +462,31 @@ export default function GuestUploadPage() {
                           })
                         }
                       >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={displayUrl}
                           alt={u.caption || u.fileName}
-                          className="w-full h-full object-cover active:scale-95 transition-transform"
+                          loading="lazy"
+                          className="h-full w-full object-cover transition-transform duration-300 group-active:scale-95"
                         />
-                        <span className="absolute bottom-1 right-1 bg-black/40 rounded-full p-0.5">
-                          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-                          </svg>
+                        <span className="absolute bottom-1.5 right-1.5 grid h-6 w-6 place-items-center rounded-full bg-ink-900/45 text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100">
+                          <ZoomIcon className="h-3.5 w-3.5" />
                         </span>
                       </button>
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <span className="text-2xl">📷</span>
+                      <div className="grid h-full w-full place-items-center text-ink-300">
+                        <ImageIcon className="h-6 w-6" />
                       </div>
                     )}
                   </div>
                 );
               })}
             </div>
-          </div>
+          </section>
         )}
 
-        {/* Footer */}
-        <p className="text-center text-xs text-gray-400 pt-4">
-          Powered by PartySnap — Photos go directly to the host
+        <p className="pt-6 text-center text-xs text-ink-400">
+          Powered by PartySnap · Photos go straight to the host
         </p>
       </div>
     </div>

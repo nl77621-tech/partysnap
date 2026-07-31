@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import PartyForm from "@/components/PartyForm";
+import { ArrowLeftIcon, PageLoader } from "@/components/Icons";
 
 export default function EditParty() {
   const { status } = useSession();
@@ -24,29 +25,68 @@ export default function EditParty() {
       .finally(() => setLoading(false));
   }, [params.id]);
 
-  if (status === "loading" || loading) {
+  if (status === "loading" || loading) return <PageLoader />;
+
+  if (!party) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
+      <div className="min-h-screen bg-paper">
+        <header className="app-header">
+          <div className="mx-auto flex max-w-6xl items-center gap-4 px-6 py-4">
+            <Link href="/dashboard" className="btn-ghost -ml-3">
+              <ArrowLeftIcon className="h-[18px] w-[18px]" />
+              Back
+            </Link>
+            <span className="h-5 w-px bg-ink-200" />
+            <Link href="/dashboard" className="wordmark">
+              PartySnap
+            </Link>
+          </div>
+        </header>
+
+        <main className="mx-auto max-w-3xl px-6 py-12">
+          <div className="card animate-rise-in mx-auto max-w-lg px-8 py-16 text-center">
+            <h2 className="text-2xl font-semibold text-ink-900">
+              Party not found
+            </h2>
+            <p className="mx-auto mt-2 max-w-xs text-[15px] leading-relaxed text-ink-600">
+              This party may have been deleted, or the link is no longer valid.
+            </p>
+            <Link href="/dashboard" className="btn-primary mt-7">
+              Back to dashboard
+            </Link>
+          </div>
+        </main>
       </div>
     );
   }
 
-  if (!party) {
-    return <div className="min-h-screen flex items-center justify-center">Party not found</div>;
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center gap-4">
-          <Link href="/dashboard" className="text-gray-500 hover:text-gray-700">
-            &larr; Back
+    <div className="min-h-screen bg-paper">
+      <header className="app-header">
+        <div className="mx-auto flex max-w-6xl items-center gap-4 px-6 py-4">
+          <Link href="/dashboard" className="btn-ghost -ml-3">
+            <ArrowLeftIcon className="h-[18px] w-[18px]" />
+            Back
           </Link>
-          <h1 className="text-xl font-bold text-gray-900">Edit Party</h1>
+          <span className="h-5 w-px bg-ink-200" />
+          <Link href="/dashboard" className="wordmark">
+            PartySnap
+          </Link>
         </div>
       </header>
-      <main className="max-w-6xl mx-auto px-4 py-8">
+
+      <main className="mx-auto max-w-3xl px-6 py-12">
+        <div className="mb-10">
+          <p className="eyebrow mb-2">Edit party</p>
+          <h1 className="text-4xl font-semibold text-ink-900 sm:text-5xl">
+            {(party.name as string) || "Edit party"}
+          </h1>
+          <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-ink-600">
+            Update the details guests see. Changes apply everywhere the party
+            appears.
+          </p>
+        </div>
+
         <PartyForm
           mode="edit"
           initialData={{

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import Link from "next/link";
 import PartyForm from "@/components/PartyForm";
+import { ArrowLeftIcon, PageLoader } from "@/components/Icons";
 
 export default function NewParty() {
   const { status } = useSession();
@@ -14,25 +15,35 @@ export default function NewParty() {
     if (status === "unauthenticated") router.replace("/");
   }, [status, router]);
 
-  if (status === "loading") {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
-      </div>
-    );
-  }
+  if (status === "loading") return <PageLoader />;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center gap-4">
-          <Link href="/dashboard" className="text-gray-500 hover:text-gray-700">
-            &larr; Back
+    <div className="min-h-screen bg-paper">
+      <header className="app-header">
+        <div className="mx-auto flex max-w-6xl items-center gap-4 px-6 py-4">
+          <Link href="/dashboard" className="btn-ghost -ml-3">
+            <ArrowLeftIcon className="h-[18px] w-[18px]" />
+            Back
           </Link>
-          <h1 className="text-xl font-bold text-gray-900">Create New Party</h1>
+          <span className="h-5 w-px bg-ink-200" />
+          <Link href="/dashboard" className="wordmark">
+            PartySnap
+          </Link>
         </div>
       </header>
-      <main className="max-w-6xl mx-auto px-4 py-8">
+
+      <main className="mx-auto max-w-3xl px-6 py-12">
+        <div className="mb-10">
+          <p className="eyebrow mb-2">New party</p>
+          <h1 className="text-4xl font-semibold text-ink-900 sm:text-5xl">
+            Set up your party
+          </h1>
+          <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-ink-600">
+            Name it, pick a date, and choose a color. You&rsquo;ll get a QR code
+            for guests as soon as you&rsquo;re done.
+          </p>
+        </div>
+
         <PartyForm mode="create" />
       </main>
     </div>

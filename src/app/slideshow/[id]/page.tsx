@@ -48,6 +48,74 @@ function getDisplayUrl(driveThumbnail: string | null, driveFileId: string | null
   return null;
 }
 
+/* Control-bar icons. Kept local to this file — they exist only for the TV
+   chrome and aren't part of the shared app icon set. */
+const ctl = {
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.7,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+  "aria-hidden": true,
+};
+
+const GridIcon = () => (
+  <svg {...ctl} className="h-[18px] w-[18px]">
+    <rect x="3" y="3" width="7.5" height="7.5" rx="1.5" />
+    <rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5" />
+    <rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5" />
+    <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5" />
+  </svg>
+);
+
+const SlidesIcon = () => (
+  <svg {...ctl} className="h-[18px] w-[18px]">
+    <rect x="2.5" y="5" width="19" height="14" rx="2" />
+    <path d="M7 19v2M17 19v2" />
+  </svg>
+);
+
+const ShuffleIcon = () => (
+  <svg {...ctl} className="h-[18px] w-[18px]">
+    <path d="M17 3.5 21 7l-4 3.5M17 13.5 21 17l-4 3.5" />
+    <path d="M3 7h3.5c1.5 0 2.4.8 3.3 2l3.4 6c.9 1.2 1.8 2 3.3 2H21" />
+    <path d="M3 17h3.5c1.5 0 2.4-.8 3.3-2M21 7h-3.5c-1 0-1.8.4-2.5 1" />
+  </svg>
+);
+
+const ExpandIcon = ({ exit }: { exit: boolean }) =>
+  exit ? (
+    <svg {...ctl} className="h-[18px] w-[18px]">
+      <path d="M9 3v6H3M15 3v6h6M9 21v-6H3M15 21v-6h6" />
+    </svg>
+  ) : (
+    <svg {...ctl} className="h-[18px] w-[18px]">
+      <path d="M3 9V3h6M21 9V3h-6M3 15v6h6M21 15v6h-6" />
+    </svg>
+  );
+
+const PlayIcon = ({ className = "" }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className={className}>
+    <path d="M8 5.14v13.72a.6.6 0 0 0 .92.5l10.7-6.86a.6.6 0 0 0 0-1l-10.7-6.86a.6.6 0 0 0-.92.5Z" />
+  </svg>
+);
+
+const PhotoIcon = ({ className = "" }: { className?: string }) => (
+  <svg {...ctl} className={className}>
+    <rect x="3" y="4" width="18" height="16" rx="2.5" />
+    <circle cx="8.5" cy="9.5" r="1.5" />
+    <path d="m3.5 17 4.5-4.5a2 2 0 0 1 2.8 0l3.2 3.2m0 0 2-2a2 2 0 0 1 2.8 0l1.7 1.7" />
+  </svg>
+);
+
+const SPEEDS = [
+  { value: 3000, label: "Fast" },
+  { value: 6000, label: "Normal" },
+  { value: 10000, label: "Slow" },
+  { value: 15000, label: "Very slow" },
+];
+
 export default function SlideshowPage() {
   const params = useParams();
   const [party, setParty] = useState<Party | null>(null);
@@ -150,8 +218,8 @@ export default function SlideshowPage() {
 
   if (!party) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white" />
+      <div className="flex min-h-screen items-center justify-center bg-[#0B0A09]">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-white/80" />
       </div>
     );
   }
@@ -161,42 +229,62 @@ export default function SlideshowPage() {
 
   if (uploads.length === 0) {
     return (
-      <div className="min-h-screen bg-black flex flex-col items-center justify-center text-white">
-        <div className="text-6xl mb-6 animate-pulse">📸</div>
-        <h1 className="text-3xl font-bold mb-2">{party.name}</h1>
-        <p className="text-lg text-gray-400">Waiting for photos...</p>
-        <p className="text-sm text-gray-500 mt-2">
-          Uploads will appear here in real time
-        </p>
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[#0B0A09] px-6 text-center text-white">
+        <div
+          className="mb-8 grid h-20 w-20 place-items-center rounded-3xl"
+          style={{ backgroundColor: `${party.themeColor}26`, color: party.themeColor }}
+        >
+          <PhotoIcon className="h-9 w-9" />
+        </div>
+        <h1 className="font-display text-[clamp(2rem,5vw,3.25rem)] font-semibold tracking-[-0.02em]">
+          {party.name}
+        </h1>
+        <p className="mt-3 text-lg text-white/55">Waiting for the first photo…</p>
+        <div className="mt-8 flex items-center gap-2.5 text-sm text-white/35">
+          <span className="relative flex h-2 w-2">
+            <span
+              className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-70"
+              style={{ backgroundColor: party.themeColor }}
+            />
+            <span
+              className="relative inline-flex h-2 w-2 rounded-full"
+              style={{ backgroundColor: party.themeColor }}
+            />
+          </span>
+          Listening for uploads
+        </div>
       </div>
     );
   }
 
   return (
     <div
-      className="min-h-screen bg-black relative overflow-hidden cursor-none"
+      className="relative min-h-screen overflow-hidden bg-[#0B0A09]"
       onMouseMove={resetControlsTimer}
       style={{ cursor: showControls ? "default" : "none" }}
     >
       {/* Video modal */}
       {videoModal && (
         <div
-          className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-4 backdrop-blur-sm"
           onClick={() => setVideoModal(null)}
         >
           <button
-            className="absolute top-4 right-4 text-white/80 hover:text-white text-3xl leading-none z-10"
+            aria-label="Close video"
+            className="absolute right-5 top-5 z-10 grid h-11 w-11 place-items-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
             onClick={() => setVideoModal(null)}
           >
-            ✕
+            <svg {...ctl} className="h-5 w-5">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
           </button>
           <div
-            className="w-full max-w-3xl aspect-video rounded-xl overflow-hidden shadow-2xl"
+            className="aspect-video w-full max-w-3xl overflow-hidden rounded-2xl shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <iframe
               src={`https://drive.google.com/file/d/${videoModal.fileId}/preview`}
-              className="w-full h-full"
+              className="h-full w-full"
               allow="autoplay"
               allowFullScreen
             />
@@ -204,82 +292,107 @@ export default function SlideshowPage() {
         </div>
       )}
 
-      {/* Slideshow Mode */}
+      {/* Slideshow mode */}
       {mode === "slideshow" && currentPhoto && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div
-            key={currentPhoto.id}
-            className="absolute inset-0 animate-fadeIn"
-          >
+        <div className="absolute inset-0">
+          <div key={currentPhoto.id} className="animate-fadeIn absolute inset-0">
             {getDisplayUrl(currentPhoto.driveThumbnail, currentPhoto.driveFileId) ? (
-              <img
-                src={getDisplayUrl(currentPhoto.driveThumbnail, currentPhoto.driveFileId)!}
-                alt=""
-                className="w-full h-full object-contain ken-burns"
-              />
+              <>
+                {/* Blurred fill so letterboxed photos never sit on dead black */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={getDisplayUrl(currentPhoto.driveThumbnail, currentPhoto.driveFileId)!}
+                  alt=""
+                  aria-hidden
+                  className="absolute inset-0 h-full w-full scale-125 object-cover opacity-40 blur-3xl saturate-150"
+                />
+                <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-transparent to-black/45" />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={getDisplayUrl(currentPhoto.driveThumbnail, currentPhoto.driveFileId)!}
+                  alt={currentPhoto.caption || ""}
+                  className="ken-burns relative h-full w-full object-contain drop-shadow-2xl"
+                />
+              </>
             ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <div className="text-center text-white">
-                  <svg className="w-20 h-20 mx-auto mb-4 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  <p className="text-lg opacity-70">{currentPhoto.fileName}</p>
+              <div className="flex h-full w-full items-center justify-center">
+                <div className="text-center text-white/60">
+                  <PhotoIcon className="mx-auto mb-4 h-16 w-16" />
+                  <p className="text-lg">{currentPhoto.fileName}</p>
                 </div>
               </div>
             )}
 
-            {/* Caption overlay */}
+            {/* Caption */}
             {currentPhoto.caption && (
-              <div className="absolute bottom-20 left-0 right-0 text-center">
-                <span className="inline-block px-6 py-3 bg-black/60 backdrop-blur-sm rounded-full text-white text-lg">
+              <div className="absolute bottom-16 left-0 right-0 flex justify-center px-8">
+                <p className="max-w-3xl rounded-2xl bg-black/45 px-7 py-3.5 text-center font-display text-2xl italic text-white/95 shadow-2xl backdrop-blur-md">
                   {currentPhoto.caption}
-                </span>
+                </p>
               </div>
             )}
           </div>
 
-          {/* Photo counter */}
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/40 text-sm">
+          {/* Time-to-next-slide bar */}
+          <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-white/10">
+            <div
+              key={`${currentPhoto.id}-${speed}`}
+              className="h-full origin-left"
+              style={{
+                backgroundColor: party.themeColor,
+                animation: `progressBar ${speed}ms linear forwards`,
+              }}
+            />
+          </div>
+
+          <div className="absolute bottom-5 left-1/2 -translate-x-1/2 text-xs font-medium tracking-[0.18em] text-white/35">
             {(currentIndex % photos.length) + 1} / {photos.length}
           </div>
         </div>
       )}
 
-      {/* Grid Mode */}
+      {/* Grid mode */}
       {mode === "grid" && (
-        <div className="p-4 grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 auto-rows-fr min-h-screen">
-          {uploads.map((upload) => (
+        <div className="grid min-h-screen auto-rows-fr grid-cols-3 gap-2 p-2 pt-20 md:grid-cols-4 lg:grid-cols-6">
+          {uploads.map((upload, i) => (
             <div
               key={upload.id}
-              className="relative rounded-lg overflow-hidden bg-gray-900 aspect-square animate-slideUp"
+              className="animate-slideUp relative aspect-square overflow-hidden rounded-xl bg-white/5"
+              style={{ animationDelay: `${Math.min(i, 24) * 35}ms` }}
             >
               {upload.mediaType === "video" ? (
-                // Video tile — click to play in modal
                 <button
-                  className="w-full h-full flex flex-col items-center justify-center bg-gray-800 gap-1 hover:bg-gray-700 transition-colors"
-                  onClick={() => upload.driveFileId && setVideoModal({ fileId: upload.driveFileId, fileName: upload.fileName })}
+                  aria-label={`Play ${upload.fileName}`}
+                  className="group flex h-full w-full flex-col items-center justify-center gap-2 bg-white/[0.07] transition-colors hover:bg-white/[0.12]"
+                  onClick={() =>
+                    upload.driveFileId &&
+                    setVideoModal({ fileId: upload.driveFileId, fileName: upload.fileName })
+                  }
                 >
-                  <svg className="w-10 h-10 text-white/70" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                  <span className="text-white/40 text-xs px-2 truncate max-w-full">Tap to play</span>
+                  <span className="grid h-11 w-11 place-items-center rounded-full bg-white/15 text-white transition-transform group-hover:scale-110">
+                    <PlayIcon className="ml-0.5 h-5 w-5" />
+                  </span>
+                  <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-white/45">
+                    Video
+                  </span>
                 </button>
               ) : getDisplayUrl(upload.driveThumbnail, upload.driveFileId, "w400") ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
                 <img
                   src={getDisplayUrl(upload.driveThumbnail, upload.driveFileId, "w400")!}
-                  alt=""
-                  className="w-full h-full object-cover"
+                  alt={upload.caption || ""}
+                  loading="lazy"
+                  className="h-full w-full object-cover transition-transform duration-700 hover:scale-105"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <svg className="w-8 h-8 text-white/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
+                <div className="grid h-full w-full place-items-center text-white/25">
+                  <PhotoIcon className="h-7 w-7" />
                 </div>
               )}
+
               {upload.caption && (
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
-                  <p className="text-white text-xs truncate">{upload.caption}</p>
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent p-2.5 pt-8">
+                  <p className="truncate text-xs text-white/90">{upload.caption}</p>
                 </div>
               )}
             </div>
@@ -289,61 +402,101 @@ export default function SlideshowPage() {
 
       {/* Controls */}
       <div
-        className={`absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/80 to-transparent transition-opacity duration-500 ${
-          showControls ? "opacity-100" : "opacity-0 pointer-events-none"
+        className={`absolute inset-x-0 top-0 z-30 bg-gradient-to-b from-black/75 via-black/35 to-transparent p-5 pb-12 transition-opacity duration-500 ${
+          showControls ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
       >
-        <div className="flex items-center justify-between max-w-4xl mx-auto">
-          <h1 className="text-white font-bold text-lg">{party.name}</h1>
-          <div className="flex items-center gap-3">
-            <span className="text-white/60 text-sm">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="truncate font-display text-2xl font-semibold tracking-[-0.02em] text-white">
+              {party.name}
+            </h1>
+            <p className="mt-0.5 text-xs font-medium uppercase tracking-[0.16em] text-white/45">
               {uploads.length} {uploads.length === 1 ? "upload" : "uploads"}
-            </span>
+            </p>
+          </div>
 
-            {/* Mode toggle */}
-            <button
+          {/* Glass control cluster */}
+          <div className="flex items-center gap-1.5 rounded-2xl border border-white/10 bg-white/10 p-1.5 backdrop-blur-xl">
+            <CtlButton
               onClick={() => setMode(mode === "slideshow" ? "grid" : "slideshow")}
-              className="px-3 py-1.5 bg-white/20 text-white rounded-lg text-sm hover:bg-white/30 transition-colors"
+              label={mode === "slideshow" ? "Switch to grid view" : "Switch to slideshow"}
             >
-              {mode === "slideshow" ? "Grid" : "Slideshow"}
-            </button>
+              {mode === "slideshow" ? <GridIcon /> : <SlidesIcon />}
+              <span className="hidden sm:inline">
+                {mode === "slideshow" ? "Grid" : "Slides"}
+              </span>
+            </CtlButton>
 
-            {/* Speed control */}
             {mode === "slideshow" && (
-              <select
-                value={speed}
-                onChange={(e) => setSpeed(Number(e.target.value))}
-                className="bg-white/20 text-white rounded-lg text-sm px-2 py-1.5 border-none"
-              >
-                <option value={3000}>Fast (3s)</option>
-                <option value={6000}>Normal (6s)</option>
-                <option value={10000}>Slow (10s)</option>
-                <option value={15000}>Very Slow (15s)</option>
-              </select>
+              <>
+                <CtlButton
+                  onClick={() => setShuffle(!shuffle)}
+                  active={shuffle}
+                  label={shuffle ? "Turn shuffle off" : "Turn shuffle on"}
+                  pressed={shuffle}
+                >
+                  <ShuffleIcon />
+                  <span className="hidden sm:inline">Shuffle</span>
+                </CtlButton>
+
+                <label className="sr-only" htmlFor="speed">
+                  Slide duration
+                </label>
+                <select
+                  id="speed"
+                  value={speed}
+                  onChange={(e) => setSpeed(Number(e.target.value))}
+                  className="cursor-pointer rounded-xl border-none bg-transparent px-2.5 py-2 text-sm font-medium text-white/85 outline-none transition-colors hover:bg-white/10"
+                >
+                  {SPEEDS.map((s) => (
+                    <option key={s.value} value={s.value} className="bg-ink-900">
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </>
             )}
 
-            {/* Shuffle */}
-            <button
-              onClick={() => setShuffle(!shuffle)}
-              className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
-                shuffle
-                  ? "bg-white text-black"
-                  : "bg-white/20 text-white hover:bg-white/30"
-              }`}
-            >
-              Shuffle
-            </button>
-
-            {/* Fullscreen */}
-            <button
+            <CtlButton
               onClick={toggleFullscreen}
-              className="px-3 py-1.5 bg-white/20 text-white rounded-lg text-sm hover:bg-white/30 transition-colors"
+              label={isFullscreen ? "Exit full screen" : "Enter full screen"}
             >
-              {isFullscreen ? "Exit FS" : "Fullscreen"}
-            </button>
+              <ExpandIcon exit={isFullscreen} />
+            </CtlButton>
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+function CtlButton({
+  onClick,
+  children,
+  active = false,
+  pressed,
+  label,
+}: {
+  onClick: () => void;
+  children: React.ReactNode;
+  active?: boolean;
+  pressed?: boolean;
+  label: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      aria-pressed={pressed}
+      className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+        active
+          ? "bg-white text-ink-900"
+          : "text-white/85 hover:bg-white/15 hover:text-white"
+      }`}
+    >
+      {children}
+    </button>
   );
 }

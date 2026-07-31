@@ -8,13 +8,111 @@
 
 @layer base {
   body {
-    @apply bg-gray-50 text-gray-900 antialiased;
+    @apply bg-paper text-ink-900 antialiased;
+  }
+
+  /* Display face carries optical sizing — keep headings tight and confident */
+  h1,
+  h2,
+  h3 {
+    @apply font-display tracking-[-0.02em];
+    font-optical-sizing: auto;
+  }
+
+  /* Warm focus ring instead of the default browser blue */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-ink-900/70 ring-offset-2 ring-offset-paper;
+  }
+
+  ::selection {
+    @apply bg-accent-200 text-ink-900;
+  }
+}
+
+@layer components {
+  /* ---- Buttons ---------------------------------------------------------- */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5
+           text-sm font-medium transition-all duration-200
+           disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  /* Ink on cream — reads more premium than a saturated brand button */
+  .btn-primary {
+    @apply btn bg-ink-900 text-paper shadow-soft
+           hover:bg-ink-800 hover:shadow-lift hover:-translate-y-px
+           active:translate-y-0 active:shadow-soft;
+  }
+
+  .btn-secondary {
+    @apply btn bg-white text-ink-800 border border-ink-200 shadow-soft
+           hover:border-ink-300 hover:bg-ink-50 hover:-translate-y-px
+           active:translate-y-0;
+  }
+
+  .btn-ghost {
+    @apply btn text-ink-600 hover:text-ink-900 hover:bg-ink-100;
+  }
+
+  .btn-danger {
+    @apply btn bg-red-600 text-white shadow-soft hover:bg-red-700;
+  }
+
+  .btn-lg {
+    @apply px-7 py-3.5 text-base rounded-2xl;
+  }
+
+  /* ---- Surfaces --------------------------------------------------------- */
+  .card {
+    @apply bg-white rounded-2xl border border-ink-200/70 shadow-soft;
+  }
+
+  .card-interactive {
+    @apply card transition-all duration-300
+           hover:shadow-lift hover:-translate-y-1 hover:border-ink-300/70;
+  }
+
+  /* ---- Forms ------------------------------------------------------------ */
+  .label {
+    @apply block text-sm font-medium text-ink-700 mb-2;
+  }
+
+  .input {
+    @apply w-full px-4 py-3 bg-white rounded-xl border border-ink-200
+           text-ink-900 placeholder:text-ink-400
+           transition-colors duration-200
+           hover:border-ink-300
+           focus:border-ink-900 focus:outline-none focus:ring-0;
+  }
+
+  /* ---- Chrome ----------------------------------------------------------- */
+  .app-header {
+    @apply sticky top-0 z-40 bg-paper/85 backdrop-blur-xl border-b border-ink-200/60;
+  }
+
+  .wordmark {
+    @apply font-display text-2xl font-semibold tracking-[-0.03em] text-ink-900;
+  }
+
+  /* Small uppercase label used above section headings */
+  .eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-500;
   }
 }
 
 @layer utilities {
   .ken-burns {
     animation: kenburns 20s ease-in-out infinite alternate;
+  }
+
+  /* Subtle paper grain — keeps large cream areas from looking flat/dead */
+  .grain::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.28;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   }
 }
 
@@ -27,6 +125,16 @@
   }
   100% {
     transform: scale(1.08) translate(1%, 2%);
+  }
+}
+
+/* Slideshow: time-to-next-slide indicator. Duration is set inline per slide. */
+@keyframes progressBar {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
   }
 }
 
@@ -58,4 +166,14 @@
 
 .animate-slideUp {
   animation: slideUp 0.5s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
