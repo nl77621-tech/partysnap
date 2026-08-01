@@ -45,6 +45,8 @@ interface UploadItem {
   status: "pending" | "uploading" | "done" | "error";
   caption: string;
   preview: string;
+  /** Server-supplied reason, e.g. the rate-limit message. */
+  error?: string;
 }
 
 interface ExistingUpload {
@@ -156,7 +158,8 @@ export default function GuestUploadPage() {
     setUploads((prev) => prev.map((u) => (u.id === id ? { ...u, ...changes } : u)));
 
   const uploadFile = async (item: UploadItem) => {
-    patch(item.id, { status: "uploading" });
+    // Clear any previous failure so a retry starts from a clean row.
+    patch(item.id, { status: "uploading", error: undefined, progress: 0 });
 
     const formData = new FormData();
     formData.append("file", item.file);
@@ -178,12 +181,24 @@ export default function GuestUploadPage() {
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) {
           patch(item.id, { status: "done", progress: 100 });
-        } else {
-          patch(item.id, { status: "error" });
+          return;
         }
+        // Surface the server's reason (rate limit, expired link, file too
+        // large) rather than a generic failure.
+        let message = "Upload failed";
+        try {
+          message = JSON.parse(xhr.responseText)?.error || message;
+        } catch {
+          // Non-JSON response — keep the generic message.
+        }
+        patch(item.id, { status: "error", error: message });
       };
 
-      xhr.onerror = () => patch(item.id, { status: "error" });
+      xhr.onerror = () =>
+        patch(item.id, {
+          status: "error",
+          error: "Connection lost",
+        });
       xhr.send(formData);
     } catch {
       patch(item.id, { status: "error" });
@@ -396,12 +411,15 @@ export default function GuestUploadPage() {
                     <p className="mt-0.5 text-xs text-emerald-600">Shared</p>
                   )}
                   {item.status === "error" && (
-                    <button
-                      onClick={() => uploadFile(item)}
-                      className="mt-0.5 text-xs font-medium text-red-600 underline underline-offset-2"
-                    >
-                      Failed — tap to retry
-                    </button>
+                    <p className="mt-0.5 text-xs text-red-600">
+                      {item.error || "Upload failed"} —{" "}
+                      <button
+                        onClick={() => uploadFile(item)}
+                        className="font-medium underline underline-offset-2"
+                      >
+                        retry
+                      </button>
+                    </p>
                   )}
                 </div>
 
